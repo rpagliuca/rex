@@ -4,14 +4,13 @@ O rex não fala com nenhum sistema de notificação, celular ou assistente de vo
 que acontece e o que está pendente por interfaces genéricas, e cada instalação liga a elas o que
 quiser por configuração, sem código particular neste repositório.
 
-Três interfaces de saída e uma de entrada, todas no contrato [`api/openapi.yaml`](../api/openapi.yaml):
+Três interfaces de saída, todas no contrato [`api/openapi.yaml`](../api/openapi.yaml):
 
 | Interface | Para quem | Garantia |
 |---|---|---|
 | `GET /integracao/pendencias` | quem faz polling (um retrato do que pede atenção agora) | estado: quem perdeu uma chamada se recupera na seguinte |
 | `GET /eventos?depois=<id>&tipo=…` | quem quer cada transição, sem perder nenhuma | cursor sobre o log de eventos, que nunca é apagado |
 | ganchos (`-integracoes`) | quem quer ser avisado na hora, sem polling | pelo menos uma tentativa por evento, na ordem, sobrevivendo a reinícios; desistência registrada no log |
-| `POST /captura` | atalhos de voz e outros canais sem sessão | idempotente pela `chave` |
 
 ## Por que pendências + ganchos, e não só ganchos
 
@@ -66,10 +65,6 @@ a integrações:
 {
   "fuso": "America/Sao_Paulo",
   "base_publica": "http://exemplo:8790",
-  "captura": {
-    "token_ambiente": "REX_TOKEN_CAPTURA",
-    "organizacao": "Pessoal"
-  },
   "ganchos": [
     {
       "nome": "barra",
@@ -88,13 +83,11 @@ a integrações:
 }
 ```
 
-- `fuso`: em que fuso a captura interpreta "amanhã às 9" e a tela mostra as horas. Padrão: o da máquina.
+- `fuso`: em que fuso os lembretes são interpretados e a tela mostra as horas. Padrão: o da máquina.
 - `base_publica`: base do campo `link` dos lembretes. Sem ela, `link` fica ausente.
 - `turnos`: onde começam a manhã (e o dia), o almoço, a tarde e a noite, em `"HH:MM"`, para os
   lembretes de turno ou dia (ver abaixo). Padrão: `{"manha": "08:00", "almoco": "12:00", "tarde":
   "13:00", "noite": "18:00"}`; o turno omitido fica com o padrão.
-- `captura`: liga `POST /captura`; o token vem da variável de ambiente nomeada (o segredo nunca fica
-  no JSON). Sem `captura`, o endpoint responde 404.
 - `eventos`: tipos exatos ou com `*` no fim.
 - `comando`: argv, sem shell; aceita `{tipo}`, `{entidade}` e `{evento}` (id). Recebe no stdin o
   JSON da notificação. Saída diferente de 0 conta como falha.
@@ -146,60 +139,6 @@ agente escolha, pelo que o usuário disse.
 Opcional, até 10 caracteres: a palavra que identifica o compromisso ("ballet", "dentista"), para os
 consumidores com pouco espaço (a ilha do iPhone mostra "16:50 ballet" num valor de 16 caracteres).
 Sem ela, o consumidor usa o começo do texto. No `PATCH`, vazio remove.
-
-## Captura
-
-`POST /captura` com `Authorization: Bearer <token de captura>`:
-
-```json
-{"tipo": "lembrete", "texto": "ligar para o contador amanhã às 9", "chave": "id-da-mensagem", "dita_em": "2026-10-20T21:14:00-03:00"}
-```
-
-Resposta em `text/plain`, uma frase de até 200 caracteres para ser falada:
-
-| Código | Significa | O canal deve |
-|---|---|---|
-| 201 | criado; a frase repete o que foi entendido; `X-rex-Id` traz o id | falar a frase |
-| 200 | `chave` repetida (devolve o mesmo resultado) ou `simular: true` | falar a frase |
-| 422 | precisa de esclarecimento (hora ausente, ambígua ou no passado em relação a `dita_em`) | falar a pergunta e pedir de novo |
-| 400, 401, 404 | recusado (pedido malformado, token errado, captura desligada) | falar o motivo; não reenviar |
-| 5xx | falha do servidor | reenviar depois com a mesma `chave` |
-
-- **lembrete**: o texto traz o que e quando juntos. Horas relativas contam de `dita_em` (padrão: a
-  chegada). Se a hora já passou quando o pedido chega (fila atrasada), o lembrete é criado e
-  disparado na hora, marcado como atrasado, e a frase diz isso.
-- **tarefa**: sempre `a_fazer`; nunca aciona o lançador.
-- **requisito**: título verbatim, sob o zero da organização, sem pontos de importância (vai para a triagem).
-
-O autor de tudo no log de eventos é `captura`.
-
-### Datas e horas aceitas
-
-"hoje/amanhã/depois de amanhã às 9", "às 14h30", "9 da manhã", "3 da tarde", "segunda às 10",
-"dia 25 às 8", "25/10 às 8", "daqui a 20 minutos", "daqui a 2 horas", "meio-dia", "meia-noite".
-
-Sem hora, o lembrete é de turno ou de dia (precisão `turno` ou `dia`, ver acima), nunca com uma hora
-inventada: "amanhã de manhã", "hoje à tarde", "sexta à noite" e "daqui a 2 dias de manhã" são de turno;
-"amanhã", "sexta", "dia 30" e "daqui a 3 dias" são do dia; "no almoço" e "na hora do almoço" são do
-turno do almoço (só com a preposição: "almoço com a Ana" é texto). "Semana que vem", "próxima
-semana", "nesta semana", "na semana do dia 12" e "daqui a 2 semanas" são da semana; "mês que vem",
-"neste mês", "em abril", "em abril de 2027" e "daqui a 3 meses" são do mês ("em abril" dito em
-outubro é o do ano seguinte; o mês corrente vale ainda este ano). Com o dia dentro deles, o dia
-vence: "quarta da semana que vem" e "em abril, dia 20" são do dia. Semana ou mês com hora ou turno
-e sem dia é 422 (não se chuta o dia). Um turno solto junto de uma hora vira o
-período dela ("amanhã à tarde às 5" = 17:00, precisão `hora`).
-
-Regras para não chutar:
-
-- hora sem dia vale para hoje; se já passou (em relação a `dita_em`), é 422 — nunca vira amanhã
-  sozinha;
-- hora de 1 a 11 sem "da manhã/da tarde/da noite" vale como dita (às 3 = 03:00), o que, combinado
-  com a regra anterior, faz "às 3" dito às 14:00 virar 422;
-- texto sem hora, turno nem dia reconhecidos é 422;
-- turno ou dia cuja janela inteira já passou (em relação a `dita_em`) é 422; o de hoje que ainda não
-  acabou é aceito ("hoje à tarde" dito às 14:00);
-- a frase de resposta sempre repete dia da semana, data e hora ("terça 21/10 às 09:00"), ou o turno
-  ("terça 21/10 à tarde") ou o dia ("terça 21/10, o dia todo").
 
 ## rex voz
 

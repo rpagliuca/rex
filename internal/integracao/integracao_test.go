@@ -145,7 +145,6 @@ func TestConfiguracaoInvalida(t *testing.T) {
 		{Turnos: &Turnos{Tarde: "1h"}},
 		{Turnos: &Turnos{Tarde: "07:00"}},
 		{Turnos: &Turnos{Almoco: "13:30"}},
-		{Captura: &Captura{TokenAmbiente: "NAO_DEFINIDA"}},
 		{Ganchos: []Gancho{{Nome: "a", Eventos: []string{"x"}}}},
 		{Ganchos: []Gancho{{Nome: "a", Comando: []string{"true"}}}},
 		{Ganchos: []Gancho{{Nome: "a", Eventos: []string{"x"}, Comando: []string{"true"}}, {Nome: "a", Eventos: []string{"x"}, Comando: []string{"true"}}}},

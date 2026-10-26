@@ -1,10 +1,7 @@
 package servidor
 
 import (
-	"bytes"
 	"encoding/json"
-	"io"
-	"net/http"
 	"testing"
 	"time"
 
@@ -227,134 +224,6 @@ func TestPendencias(t *testing.T) {
 }
 
 func itoa(n int64) string { b, _ := json.Marshal(n); return string(b) }
-
-// capturar faz POST /captura e devolve o status, a frase e o id criado.
-func (a *ambiente) capturar(token string, c api.Captura) (int, string, string) {
-	a.t.Helper()
-	corpo, _ := json.Marshal(c)
-	req, _ := http.NewRequest("POST", a.srv.URL+"/captura", bytes.NewReader(corpo))
-	req.Header.Set("Content-Type", "application/json")
-	if token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
-	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		a.t.Fatal(err)
-	}
-	defer resp.Body.Close()
-	frase, _ := io.ReadAll(resp.Body)
-	return resp.StatusCode, string(frase), resp.Header.Get("X-rex-Id")
-}
-
-func TestCaptura(t *testing.T) {
-	a := novoAmbiente(t)
-	fuso, _ := time.LoadLocation("America/Sao_Paulo")
-	agora := a.relogio(time.Date(2026, 10, 20, 14, 10, 0, 0, fuso))
-	lembrete := api.Captura{Tipo: api.TipoDeCapturaLembrete, Texto: "ligar para o contador amanhã às 9"}
-
-	if st, _, _ := a.capturar("segredo", lembrete); st != 404 {
-		t.Fatalf("captura desligada deveria ser 404: %d", st)
-	}
-	a.servidor.ComIntegracao(Integracao{Fuso: fuso, TokenDeCaptura: "segredo", OrganizacaoDaCaptura: "Pessoal"})
-	if st, _, _ := a.capturar("errado", lembrete); st != 401 {
-		t.Fatalf("token errado deveria ser 401: %d", st)
-	}
-
-	chave := "msg-1"
-	lembrete.Chave = &chave
-	st, frase, id := a.capturar("segredo", lembrete)
-	if st != 201 || id != "L-0001" || frase != "Lembrete L-0001: ligar para o contador, quarta 21/10 às 09:00." {
-		t.Fatalf("captura de lembrete: %d %q %q", st, frase, id)
-	}
-	// A fila reentrega: mesma chave, mesmo resultado, nada novo.
-	if st2, frase2, id2 := a.capturar("segredo", lembrete); st2 != 200 || frase2 != frase || id2 != id {
-		t.Fatalf("repetição: %d %q %q", st2, frase2, id2)
-	}
-	var l api.Lembrete
-	a.chamar("GET", "/lembretes/L-0001", "", nil, 200, &l)
-	if l.Autor != "captura" || l.Organizacao != "Pessoal" {
-		t.Fatalf("lembrete capturado: %+v", l)
-	}
-	a.chamar("GET", "/lembretes/L-0002", "", nil, 404, nil)
-
-	// Hora ambígua: pede de novo.
-	if st, frase, _ := a.capturar("segredo", api.Captura{Tipo: api.TipoDeCapturaLembrete, Texto: "ligar às 3"}); st != 422 || frase == "" {
-		t.Fatalf("ambígua: %d %q", st, frase)
-	}
-
-	// Ditado às 14:10, chegou às 14:40 pela fila: "daqui a 20 minutos" já passou; cria e dispara.
-	dita := *agora
-	*agora = agora.Add(30 * time.Minute)
-	st, frase, id = a.capturar("segredo", api.Captura{Tipo: api.TipoDeCapturaLembrete, Texto: "tirar o bolo do forno daqui a 20 minutos", DitaEm: &dita})
-	a.chamar("GET", "/lembretes/"+id, "", nil, 200, &l)
-	if st != 201 || l.Status != api.Disparado || !*l.Atrasado || frase != "Lembrete L-0002: tirar o bolo do forno, terça 20/10 às 14:30. Chegou depois da hora e já está tocando." {
-		t.Fatalf("atrasado: %d %q %+v", st, frase, l)
-	}
-
-	// Sem hora: turno ou dia, no início da janela da instalação; "hoje à tarde" às 14:40 ainda vale.
-	st, frase, id = a.capturar("segredo", api.Captura{Tipo: api.TipoDeCapturaLembrete, Texto: "comprar pão hoje à tarde"})
-	var turno api.Lembrete
-	a.chamar("GET", "/lembretes/"+id, "", nil, 200, &turno)
-	if st != 201 || turno.Precisao != api.PrecisaoTurno || turno.Quando.Format(time.RFC3339) != "2026-10-20T13:00:00-03:00" ||
-		frase != "Lembrete L-0003: comprar pão, terça 20/10 à tarde." {
-		t.Fatalf("turno: %d %q %+v", st, frase, turno)
-	}
-	st, frase, id = a.capturar("segredo", api.Captura{Tipo: api.TipoDeCapturaLembrete, Texto: "pagar o boleto amanhã"})
-	var dia api.Lembrete
-	a.chamar("GET", "/lembretes/"+id, "", nil, 200, &dia)
-	if st != 201 || dia.Precisao != api.PrecisaoDia || dia.Quando.Format(time.RFC3339) != "2026-10-21T08:00:00-03:00" ||
-		frase != "Lembrete L-0004: pagar o boleto, quarta 21/10, o dia todo." {
-		t.Fatalf("dia: %d %q %+v", st, frase, dia)
-	}
-	// Semana e mês: no início da manhã da segunda e do dia 1; "nesta semana" ainda vale na terça.
-	for _, c := range []struct {
-		dito, quando, frase string
-		precisao            api.PrecisaoLembrete
-	}{
-		{"recapturar os retentivos semana que vem", "2026-10-26T08:00:00-03:00", "recapturar os retentivos, na semana de 26/10.", api.PrecisaoSemana},
-		{"ligar para o banco nesta semana", "2026-10-19T08:00:00-03:00", "ligar para o banco, na semana de 19/10.", api.PrecisaoSemana},
-		{"revisar os acessos em abril", "2027-04-01T08:00:00-03:00", "revisar os acessos, em abril de 2027.", api.PrecisaoMes},
-	} {
-		st, frase, id := a.capturar("segredo", api.Captura{Tipo: api.TipoDeCapturaLembrete, Texto: c.dito})
-		var x api.Lembrete
-		a.chamar("GET", "/lembretes/"+id, "", nil, 200, &x)
-		if st != 201 || x.Precisao != c.precisao || x.Quando.Format(time.RFC3339) != c.quando || frase != "Lembrete "+id+": "+c.frase {
-			t.Fatalf("%q: %d %q %+v", c.dito, st, frase, x)
-		}
-	}
-	if st, frase, _ := a.capturar("segredo", api.Captura{Tipo: api.TipoDeCapturaLembrete, Texto: "regar hoje de manhã"}); st != 422 || frase != "terça 20/10 de manhã já passou. Diga de novo com o dia, o turno ou a hora." {
-		t.Fatalf("manhã que já passou: %d %q", st, frase)
-	}
-
-	// Tarefa: sempre a fazer, sem lançar agente.
-	st, frase, id = a.capturar("segredo", api.Captura{Tipo: api.TipoDeCapturaTarefa, Texto: "Trocar o filtro da caixa d'água"})
-	var tarefa api.Tarefa
-	a.chamar("GET", "/tarefas/"+id, "", nil, 200, &tarefa)
-	if st != 201 || tarefa.Status != api.AFazer || tarefa.Organizacao != "Pessoal" || frase != "Tarefa T-0001 criada: Trocar o filtro da caixa d'água." {
-		t.Fatalf("tarefa: %d %q %+v", st, frase, tarefa)
-	}
-
-	// Requisito: verbatim, sob o zero da organização, sem prioridade.
-	var zero api.Requisito
-	a.chamar("POST", "/requisitos", "", api.NovoRequisito{Titulo: "Tudo", Organizacao: ptr("Geral")}, 201, nil)
-	a.chamar("POST", "/requisitos", "", api.NovoRequisito{Titulo: "Vida pessoal em ordem", Organizacao: ptr("Pessoal")}, 201, &zero)
-	a.chamar("PUT", "/organizacoes/Pessoal", "", api.DefinicaoDeOrganizacao{Zero: zero.Id}, 200, nil)
-	st, _, id = a.capturar("segredo", api.Captura{Tipo: api.TipoDeCapturaRequisito, Texto: "o portão abre pelo celular"})
-	var req api.Requisito
-	a.chamar("GET", "/requisitos/"+id, "", nil, 200, &req)
-	if st != 201 || req.Titulo != "o portão abre pelo celular" || len(req.DerivaDe) != 1 || req.DerivaDe[0] != zero.Id || req.Prioridade != nil {
-		t.Fatalf("requisito: %d %+v", st, req)
-	}
-
-	// Simular não cria nada.
-	simular := true
-	if st, frase, id := a.capturar("segredo", api.Captura{Tipo: api.TipoDeCapturaTarefa, Texto: "x", Simular: &simular}); st != 200 || id != "" || frase != "Entendi a tarefa: x." {
-		t.Fatalf("simulação: %d %q %q", st, frase, id)
-	}
-	if st, _, _ := a.capturar("segredo", api.Captura{Tipo: "outro", Texto: "x"}); st != 400 {
-		t.Fatalf("tipo desconhecido: %d", st)
-	}
-}
 
 // TestCurtoDoLembrete: a palavra-chave da ilha do iPhone é opcional, tem até 10 caracteres
 // (contados em runas) e some quando alterada para vazio.

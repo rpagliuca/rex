@@ -4,7 +4,7 @@ O frontend e a API ficam no mesmo endereço. Para abrir o rex no navegador por u
 por exemplo) sem deixá-lo aberto a quem estiver nela, o `rex servir` separa os endereços:
 
 - `-endereco`: abertos, sem login. Use só loopback (`127.0.0.1`): é por eles que falam o MCP dos
-  agentes, o lançador e as integrações (a ponte da captura, os ganchos).
+  agentes, o lançador e as integrações (os ganchos).
 - `-endereco-com-login` + `-login login.json`: tudo exige login pelo Google, inclusive a API.
   Sem cookie válido, a navegação vai para o Google e o `fetch` recebe `401` com
   `X-Rex-Login: necessario` (o frontend então refaz o login).

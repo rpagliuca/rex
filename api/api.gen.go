@@ -20,8 +20,7 @@ import (
 )
 
 const (
-	TokenDaSessaoScopes  = "tokenDaSessao.Scopes"
-	TokenDeCapturaScopes = "tokenDeCaptura.Scopes"
+	TokenDaSessaoScopes = "tokenDaSessao.Scopes"
 )
 
 // Defines values for EstadoDaVoz.
@@ -124,13 +123,6 @@ const (
 	Ia     TipoAgente = "ia"
 )
 
-// Defines values for TipoDeCaptura.
-const (
-	TipoDeCapturaLembrete  TipoDeCaptura = "lembrete"
-	TipoDeCapturaRequisito TipoDeCaptura = "requisito"
-	TipoDeCapturaTarefa    TipoDeCaptura = "tarefa"
-)
-
 // Defines values for TipoOrigem.
 const (
 	Documento TipoOrigem = "documento"
@@ -231,25 +223,6 @@ type ArvoreDeRequisitos struct {
 type Atencao struct {
 	Detalhe string          `json:"detalhe"`
 	Motivo  MotivoDeAtencao `json:"motivo"`
-}
-
-// Captura defines model for Captura.
-type Captura struct {
-	// Chave Chave de idempotência do canal (ex.: id da mensagem na fila); repetições não duplicam
-	Chave *string `json:"chave,omitempty"`
-
-	// DitaEm Quando o pedido foi falado; referência das horas relativas. Padrão: a chegada
-	DitaEm *time.Time `json:"dita_em,omitempty"`
-
-	// Organizacao Padrão: a configurada no servidor
-	Organizacao *string `json:"organizacao,omitempty"`
-
-	// Simular Só interpreta e devolve a frase, sem criar nada
-	Simular *bool `json:"simular,omitempty"`
-
-	// Texto O que foi ditado, inteiro. Lembrete: o texto e a hora juntos ("ligar para o contador amanhã às 9")
-	Texto string        `json:"texto"`
-	Tipo  TipoDeCaptura `json:"tipo"`
 }
 
 // Componente Qualquer coisa reaproveitável a que requisitos e tarefas se referem (repositório, módulo, lugar, funcionalidade).
@@ -384,7 +357,7 @@ type Lembrete struct {
 	Atrasado     *bool     `json:"atrasado,omitempty"`
 	AtualizadoEm time.Time `json:"atualizado_em"`
 
-	// Autor Sessão (S-0001), "local" ou "captura"
+	// Autor Sessão (S-0001) ou "local"
 	Autor        string     `json:"autor"`
 	ConfirmadoEm *time.Time `json:"confirmado_em,omitempty"`
 	CriadoEm     time.Time  `json:"criado_em"`
@@ -923,9 +896,6 @@ type Template struct {
 // TipoAgente defines model for TipoAgente.
 type TipoAgente string
 
-// TipoDeCaptura defines model for TipoDeCaptura.
-type TipoDeCaptura string
-
 // TipoOrigem defines model for TipoOrigem.
 type TipoOrigem string
 
@@ -1056,9 +1026,6 @@ type ObterVozParams struct {
 	// Esperar Segundos (até 20) para esperar novidade enquanto o agente trabalha
 	Esperar *int `form:"esperar,omitempty" json:"esperar,omitempty"`
 }
-
-// CapturarJSONRequestBody defines body for Capturar for application/json ContentType.
-type CapturarJSONRequestBody = Captura
 
 // CriarComponenteJSONRequestBody defines body for CriarComponente for application/json ContentType.
 type CriarComponenteJSONRequestBody = NovoComponente
@@ -1243,11 +1210,6 @@ type ClientInterface interface {
 
 	// ConsultarTarefas request
 	ConsultarTarefas(ctx context.Context, params *ConsultarTarefasParams, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// CapturarWithBody request with any body
-	CapturarWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	Capturar(ctx context.Context, body CapturarJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListarComponentes request
 	ListarComponentes(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1536,30 +1498,6 @@ func (c *Client) BuscarRequisitos(ctx context.Context, params *BuscarRequisitosP
 
 func (c *Client) ConsultarTarefas(ctx context.Context, params *ConsultarTarefasParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewConsultarTarefasRequest(c.Server, params)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) CapturarWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCapturarRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) Capturar(ctx context.Context, body CapturarJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCapturarRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -3045,46 +2983,6 @@ func NewConsultarTarefasRequest(server string, params *ConsultarTarefasParams) (
 	if err != nil {
 		return nil, err
 	}
-
-	return req, nil
-}
-
-// NewCapturarRequest calls the generic Capturar builder with application/json body
-func NewCapturarRequest(server string, body CapturarJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewCapturarRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewCapturarRequestWithBody generates requests for Capturar with any type of body
-func NewCapturarRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/captura")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -5952,11 +5850,6 @@ type ClientWithResponsesInterface interface {
 	// ConsultarTarefasWithResponse request
 	ConsultarTarefasWithResponse(ctx context.Context, params *ConsultarTarefasParams, reqEditors ...RequestEditorFn) (*ConsultarTarefasResponse, error)
 
-	// CapturarWithBodyWithResponse request with any body
-	CapturarWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CapturarResponse, error)
-
-	CapturarWithResponse(ctx context.Context, body CapturarJSONRequestBody, reqEditors ...RequestEditorFn) (*CapturarResponse, error)
-
 	// ListarComponentesWithResponse request
 	ListarComponentesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListarComponentesResponse, error)
 
@@ -6280,27 +6173,6 @@ func (r ConsultarTarefasResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ConsultarTarefasResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type CapturarResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-}
-
-// Status returns HTTPResponse.Status
-func (r CapturarResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r CapturarResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -7852,23 +7724,6 @@ func (c *ClientWithResponses) ConsultarTarefasWithResponse(ctx context.Context, 
 	return ParseConsultarTarefasResponse(rsp)
 }
 
-// CapturarWithBodyWithResponse request with arbitrary body returning *CapturarResponse
-func (c *ClientWithResponses) CapturarWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CapturarResponse, error) {
-	rsp, err := c.CapturarWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCapturarResponse(rsp)
-}
-
-func (c *ClientWithResponses) CapturarWithResponse(ctx context.Context, body CapturarJSONRequestBody, reqEditors ...RequestEditorFn) (*CapturarResponse, error) {
-	rsp, err := c.Capturar(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCapturarResponse(rsp)
-}
-
 // ListarComponentesWithResponse request returning *ListarComponentesResponse
 func (c *ClientWithResponses) ListarComponentesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListarComponentesResponse, error) {
 	rsp, err := c.ListarComponentes(ctx, reqEditors...)
@@ -8804,22 +8659,6 @@ func ParseConsultarTarefasResponse(rsp *http.Response) (*ConsultarTarefasRespons
 		}
 		response.JSON400 = &dest
 
-	}
-
-	return response, nil
-}
-
-// ParseCapturarResponse parses an HTTP response from a CapturarWithResponse call
-func ParseCapturarResponse(rsp *http.Response) (*CapturarResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &CapturarResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
 	}
 
 	return response, nil
@@ -11271,9 +11110,6 @@ type ServerInterface interface {
 	// (GET /busca/tarefas)
 	ConsultarTarefas(w http.ResponseWriter, r *http.Request, params ConsultarTarefasParams)
 
-	// (POST /captura)
-	Capturar(w http.ResponseWriter, r *http.Request)
-
 	// (GET /componentes)
 	ListarComponentes(w http.ResponseWriter, r *http.Request)
 
@@ -11635,26 +11471,6 @@ func (siw *ServerInterfaceWrapper) ConsultarTarefas(w http.ResponseWriter, r *ht
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ConsultarTarefas(w, r, params)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// Capturar operation middleware
-func (siw *ServerInterfaceWrapper) Capturar(w http.ResponseWriter, r *http.Request) {
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, TokenDeCapturaScopes, []string{})
-
-	r = r.WithContext(ctx)
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.Capturar(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -13415,7 +13231,6 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc("GET "+options.BaseURL+"/arvore/requisitos", wrapper.ArvoreDeRequisitos)
 	m.HandleFunc("GET "+options.BaseURL+"/busca/requisitos", wrapper.BuscarRequisitos)
 	m.HandleFunc("GET "+options.BaseURL+"/busca/tarefas", wrapper.ConsultarTarefas)
-	m.HandleFunc("POST "+options.BaseURL+"/captura", wrapper.Capturar)
 	m.HandleFunc("GET "+options.BaseURL+"/componentes", wrapper.ListarComponentes)
 	m.HandleFunc("POST "+options.BaseURL+"/componentes", wrapper.CriarComponente)
 	m.HandleFunc("GET "+options.BaseURL+"/componentes/{id}", wrapper.ObterComponente)

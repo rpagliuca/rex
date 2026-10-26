@@ -27,11 +27,10 @@ import (
 
 // Config vem de um arquivo JSON, particular de cada instalação.
 type Config struct {
-	// Fuso IANA (ex.: America/Sao_Paulo) da captura. Padrão: o da máquina.
+	// Fuso IANA (ex.: America/Sao_Paulo) dos lembretes. Padrão: o da máquina.
 	Fuso string `json:"fuso"`
 	// BasePublica do frontend, para o link dos lembretes.
 	BasePublica string   `json:"base_publica"`
-	Captura     *Captura `json:"captura"`
 	Ganchos     []Gancho `json:"ganchos"`
 	// Turnos dos lembretes de turno ou dia, em "HH:MM". Padrão: 08:00, 12:00, 13:00 e 18:00.
 	Turnos *Turnos `json:"turnos"`
@@ -43,13 +42,6 @@ type Turnos struct {
 	Almoco string `json:"almoco"`
 	Tarde  string `json:"tarde"`
 	Noite  string `json:"noite"`
-}
-
-// Captura liga POST /captura.
-type Captura struct {
-	// TokenAmbiente é a variável de ambiente com o token (o segredo nunca fica no JSON).
-	TokenAmbiente string `json:"token_ambiente"`
-	Organizacao   string `json:"organizacao"`
 }
 
 // Gancho é chamado a cada evento cujo tipo casa com Eventos; ou Comando, ou Webhook.
@@ -120,11 +112,6 @@ func Nova(cfg Config, ambiente func(string) string) (*Integracao, error) {
 			return nil, fmt.Errorf("configuração de integração: turnos: %w", err)
 		}
 	}
-	if c := cfg.Captura; c != nil {
-		if c.TokenAmbiente == "" || ambiente(c.TokenAmbiente) == "" {
-			return nil, fmt.Errorf("configuração de integração: a captura precisa do token na variável %q", c.TokenAmbiente)
-		}
-	}
 	nomes := map[string]bool{}
 	for _, g := range cfg.Ganchos {
 		switch {
@@ -144,12 +131,7 @@ func Nova(cfg Config, ambiente func(string) string) (*Integracao, error) {
 
 // Opcoes são os parâmetros que a API usa.
 func (i *Integracao) Opcoes() servidor.Integracao {
-	o := servidor.Integracao{Fuso: i.fuso, BasePublica: i.cfg.BasePublica, Turnos: i.turnos}
-	if c := i.cfg.Captura; c != nil {
-		o.TokenDeCaptura = i.ambiente(c.TokenAmbiente)
-		o.OrganizacaoDaCaptura = c.Organizacao
-	}
-	return o
+	return servidor.Integracao{Fuso: i.fuso, BasePublica: i.cfg.BasePublica, Turnos: i.turnos}
 }
 
 // Conectar liga as opções ao servidor e começa a entregar os eventos aos ganchos, até ctx acabar.

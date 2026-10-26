@@ -13,14 +13,10 @@ import (
 
 // Integracao são os parâmetros de cada instalação que a API usa (ver docs/integracao.md).
 type Integracao struct {
-	// Fuso em que a captura interpreta datas e horas. Padrão: o da máquina.
+	// Fuso em que os lembretes são interpretados e mostrados. Padrão: o da máquina.
 	Fuso *time.Location
 	// BasePublica do frontend, para o link dos lembretes; vazia, sem link.
 	BasePublica string
-	// TokenDeCaptura liga POST /captura; vazio, o endpoint responde 404.
-	TokenDeCaptura string
-	// OrganizacaoDaCaptura é a organização quando a captura não diz qual.
-	OrganizacaoDaCaptura string
 	// Turnos dos lembretes de turno ou dia; vazio, TurnosPadrao.
 	Turnos Turnos
 }

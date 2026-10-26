@@ -49,7 +49,7 @@ func servir(args []string) {
 	caminho := opcoes.String("banco", "rex.db", "arquivo do SQLite")
 	endereco := opcoes.String("endereco", enderecoPadrao, "endereços HTTP separados por vírgula (ex.: o local e o IP do Tailscale)")
 	configLancador := opcoes.String("lancador", "", "arquivo JSON do lançador de agentes (opcional)")
-	configIntegracoes := opcoes.String("integracoes", "", "arquivo JSON das integrações: ganchos, captura e fuso (opcional; ver docs/integracao.md)")
+	configIntegracoes := opcoes.String("integracoes", "", "arquivo JSON das integrações: ganchos e fuso (opcional; ver docs/integracao.md)")
 	enderecoComLogin := opcoes.String("endereco-com-login", "", "endereços HTTP separados por vírgula que exigem login pelo Google (o do navegador, atrás de HTTPS); exige -login")
 	configLogin := opcoes.String("login", "", "arquivo JSON do login pelo Google (opcional; ver docs/login.md)")
 	opcoes.Parse(args)
@@ -116,7 +116,7 @@ func servir(args []string) {
 // resto é o frontend, que navega pelo hash da URL.
 func rotas(apiHandler http.Handler) http.Handler {
 	mux := http.NewServeMux()
-	for _, recurso := range []string{"/tarefas", "/sessoes", "/eventos", "/importacao", "/lancador", "/origens", "/requisitos", "/templates", "/organizacoes", "/componentes", "/busca", "/arvore", "/lembretes", "/integracao", "/captura", "/voz"} {
+	for _, recurso := range []string{"/tarefas", "/sessoes", "/eventos", "/importacao", "/lancador", "/origens", "/requisitos", "/templates", "/organizacoes", "/componentes", "/busca", "/arvore", "/lembretes", "/integracao", "/voz"} {
 		mux.Handle(recurso, apiHandler)
 		mux.Handle(recurso+"/", apiHandler)
 	}
