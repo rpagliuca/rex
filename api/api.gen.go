@@ -154,6 +154,8 @@ type AlteracaoComponente struct {
 
 // AlteracaoLembrete defines model for AlteracaoLembrete.
 type AlteracaoLembrete struct {
+	// Curto Vazio remove a palavra-chave
+	Curto       *string `json:"curto,omitempty"`
 	Organizacao *string `json:"organizacao,omitempty"`
 
 	// Precisao Mudar a precisão (ou a hora de um turno ou dia) põe `quando` no início da janela
@@ -387,6 +389,9 @@ type Lembrete struct {
 	ConfirmadoEm *time.Time `json:"confirmado_em,omitempty"`
 	CriadoEm     time.Time  `json:"criado_em"`
 
+	// Curto Palavra-chave para os resumos de pouco espaço (a ilha do iPhone), até 10 caracteres
+	Curto *string `json:"curto,omitempty"`
+
 	// DisparadoEm Último disparo
 	DisparadoEm *time.Time `json:"disparado_em,omitempty"`
 
@@ -518,7 +523,9 @@ type NovoComponente struct {
 
 // NovoLembrete defines model for NovoLembrete.
 type NovoLembrete struct {
-	Organizacao string `json:"organizacao"`
+	// Curto Palavra-chave do lembrete, até 10 caracteres ("ballet", "dentista"); sem ela, as integrações usam o começo do texto
+	Curto       *string `json:"curto,omitempty"`
+	Organizacao string  `json:"organizacao"`
 
 	// Precisao Padrão: hora
 	Precisao *PrecisaoLembrete `json:"precisao,omitempty"`

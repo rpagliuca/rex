@@ -355,3 +355,35 @@ func TestCaptura(t *testing.T) {
 		t.Fatalf("tipo desconhecido: %d", st)
 	}
 }
+
+// TestCurtoDoLembrete: a palavra-chave da ilha do iPhone é opcional, tem até 10 caracteres
+// (contados em runas) e some quando alterada para vazio.
+func TestCurtoDoLembrete(t *testing.T) {
+	a := novoAmbiente(t)
+	fuso := time.FixedZone("-03", -3*3600)
+	a.relogio(time.Date(2026, 10, 26, 14, 0, 0, 0, fuso))
+	quando := time.Date(2026, 10, 26, 16, 50, 0, 0, fuso)
+
+	a.chamar("POST", "/lembretes", "", api.NovoLembrete{Texto: "x", Curto: ptr("natação123"), Quando: quando, Organizacao: "Exemplo"}, 201, nil)
+	a.chamar("POST", "/lembretes", "", api.NovoLembrete{Texto: "x", Curto: ptr("natação1234"), Quando: quando, Organizacao: "Exemplo"}, 400, nil)
+	var l api.Lembrete
+	a.chamar("POST", "/lembretes", "", api.NovoLembrete{Texto: "Sair para buscar a Sofia no ballet", Curto: ptr(" ballet "), Quando: quando, Organizacao: "Exemplo"}, 201, &l)
+	if l.Curto == nil || *l.Curto != "ballet" {
+		t.Fatalf("curto: %+v", l.Curto)
+	}
+	a.chamar("PATCH", "/lembretes/"+l.Id, "", api.AlteracaoLembrete{Curto: ptr("balé")}, 200, &l)
+	if l.Curto == nil || *l.Curto != "balé" {
+		t.Fatalf("curto alterado: %+v", l.Curto)
+	}
+	id := l.Id
+	l = api.Lembrete{} // a resposta sem curto não zera o campo de um struct reaproveitado
+	a.chamar("PATCH", "/lembretes/"+id, "", api.AlteracaoLembrete{Curto: ptr("")}, 200, &l)
+	if l.Curto != nil {
+		t.Fatalf("curto vazio deveria sumir: %q", *l.Curto)
+	}
+	l = api.Lembrete{}
+	a.chamar("POST", "/lembretes", "", api.NovoLembrete{Texto: "sem palavra-chave", Quando: quando, Organizacao: "Exemplo"}, 201, &l)
+	if l.Curto != nil {
+		t.Fatalf("sem curto: %q", *l.Curto)
+	}
+}
