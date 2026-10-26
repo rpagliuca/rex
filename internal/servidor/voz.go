@@ -203,8 +203,11 @@ func (s *Servidor) PanoramaDaVoz(w http.ResponseWriter, r *http.Request) {
 			responderErro(w, err)
 			return
 		}
-		p := api.PanoramaDeVoz{Sessao: x.Id, Nome: x.Nome, Tarefas: x.Tarefas, Titulos: &[]string{}}
-		p.Estado, p.Tela = s.estadoDoAgente(x)
+		p := api.PanoramaDeVoz{Sessao: x.Id, Nome: x.Nome, Tarefas: x.Tarefas, Titulos: &[]string{}, PalavrasChave: &[]string{}}
+		p.Estado, _ = s.estadoDoAgente(x)
+		if x.Nome != nil {
+			*p.PalavrasChave = strings.FieldsFunc(*x.Nome, func(r rune) bool { return r == '-' || r == '_' || r == ' ' })
+		}
 		if x.Aguardando != nil {
 			p.Aguardando = &x.Aguardando.Mensagem
 		}
@@ -225,12 +228,32 @@ func (s *Servidor) PanoramaDaVoz(w http.ResponseWriter, r *http.Request) {
 		}
 		p.NaoOuvidas = l.Respostas
 		if l.Ultima != nil {
-			texto := semSufixo(l.Ultima.Texto)
+			texto := comecoDoTexto(semSufixo(l.Ultima.Texto))
 			p.Ultima, p.UltimaEm = &texto, &l.Ultima.Em
 		}
 		out = append(out, p)
 	}
 	responder(w, http.StatusOK, out)
+}
+
+// TamanhoNoPanorama é até onde vai o último texto do agente no panorama: a varredura de todas as
+// sessões precisa ser leve, e o texto inteiro vem na situação da sessão.
+const TamanhoNoPanorama = 200
+
+// comecoDoTexto corta o texto no fim da frase ou da palavra antes do limite do panorama.
+func comecoDoTexto(texto string) string {
+	r := []rune(strings.Join(strings.Fields(texto), " "))
+	if len(r) <= TamanhoNoPanorama {
+		return string(r)
+	}
+	corte := string(r[:TamanhoNoPanorama])
+	if i := strings.LastIndexAny(corte, ".!?:"); i >= TamanhoNoPanorama/2 {
+		return corte[:i+1]
+	}
+	if i := strings.LastIndexByte(corte, ' '); i > 0 {
+		corte = corte[:i]
+	}
+	return corte + "…"
 }
 
 // sessaoComAgente carrega a sessão, que precisa estar ativa e com agente.

@@ -162,6 +162,22 @@ func TestVozPanorama(t *testing.T) {
 		p.NaoOuvidas != 1 || p.Ultima == nil || *p.Ultima != "PR aberto." || (*p.Titulos)[0] != "Deploy do cartório" {
 		t.Fatalf("panorama: %+v", p)
 	}
+
+	// Leve: palavras do nome, só o começo de um texto longo e nada da tela, nem pedindo permissão.
+	a.chamar("PATCH", "/sessoes/"+s.Sessao.Id, s.Token, api.AlteracaoSessao{Nome: ptr("deploy-cartorio")}, 200, nil)
+	longo := strings.Repeat("palavra ", 20) + "fim. " + strings.Repeat("resto ", 300)
+	linha, _ := json.Marshal(map[string]any{"type": "assistant", "uuid": "u3", "timestamp": "2026-10-22T10:01:00Z",
+		"message": map[string]any{"content": []map[string]string{{"type": "text", "text": longo}}}})
+	f, _ := os.OpenFile(v.conversa, os.O_APPEND|os.O_WRONLY, 0o644)
+	f.Write(append(linha, '\n'))
+	f.Close()
+	v.tela = telaPermissao
+	a.chamar("GET", "/voz/sessoes", "", nil, 200, &panorama)
+	p = panorama[0]
+	if strings.Join(*p.PalavrasChave, ",") != "deploy,cartorio" || p.Estado != api.VozPedindoPermissao ||
+		*p.Ultima != strings.Repeat("palavra ", 20)+"fim." {
+		t.Fatalf("panorama leve: %+v %q", p, *p.Ultima)
+	}
 }
 
 func TestMensagemEntreSessoes(t *testing.T) {

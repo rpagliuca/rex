@@ -269,14 +269,15 @@ func TestAvisaAgenteIniciadoAMaoPeloChat(t *testing.T) {
 	l, f := novoLancador(t)
 	f.sessoes["manual"] = "" // tmux sem REX_TAREFA: o lançador não subiu este agente
 	l.sessoes = &sessoesFalsas{}
-	// MCP (pid 700) → claude (650) → shell do painel (500).
-	l.processoDoChat = func(chat string) int {
+	// Navegador órfão que o agente abriu (pid 300 → init) vem antes; depois, MCP (pid 700) → claude
+	// (650) → shell do painel (500).
+	l.processosDoChat = func(chat string) []int {
 		if chat == "chat-manual" {
-			return 700
+			return []int{300, 700}
 		}
-		return 0
+		return nil
 	}
-	l.paiDe = func(pid int) int { return map[int]int{700: 650, 650: 500}[pid] }
+	l.paiDe = func(pid int) int { return map[int]int{300: 1, 700: 650, 650: 500}[pid] }
 
 	tarefa := api.Tarefa{Id: "T-0009", Titulo: "Alertas", Status: api.Pausada, SessaoAtiva: ptr("S-0010")}
 	l.MudouStatus(servidor.MudancaDeStatus{Tarefa: tarefa, Anterior: api.EmAndamento, Autor: "local"})
@@ -321,7 +322,7 @@ func TestNomeDadoPorQuemLanca(t *testing.T) {
 func TestRenomeiaOAgenteVivo(t *testing.T) {
 	l, f := novoLancador(t)
 	l.sessoes = &sessoesFalsas{}
-	l.processoDoChat = func(string) int { return 0 }
+	l.processosDoChat = func(string) []int { return nil }
 	f.sessoes["retomar-implantacao"] = "T-0136"
 
 	l.Renomeou(api.Sessao{Id: "S-0185", Nome: ptr("dados-privado-joao"), Tarefas: []string{"T-0136"}})

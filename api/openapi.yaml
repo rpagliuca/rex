@@ -1147,7 +1147,8 @@ paths:
       description: |
         As sessões ativas, cada uma com o que o agente faz agora (lido da tela
         do tmux), se pediu resposta ao Rafael, quantas novidades ele ainda não ouviu e o último texto do
-        agente. Responde "quais sessões esperam meu input?" numa chamada. Não mexe nos ponteiros.
+        agente (só o começo). Leve: responde "quais sessões esperam meu input?" numa chamada; o detalhe
+        de uma sessão (tela, novidades inteiras) vem em /voz/sessoes/{id}. Não mexe nos ponteiros.
       responses:
         '200':
           description: Panorama
@@ -1895,12 +1896,13 @@ components:
           description: Títulos das tarefas, na mesma ordem
           items: { type: string }
         estado: { $ref: '#/components/schemas/EstadoDaVoz' }
+        palavras_chave:
+          type: array
+          description: Palavras do nome da sessão, para achar a de que o Rafael fala
+          items: { type: string }
         aguardando: { type: string, description: 'O que o agente pediu ao Rafael (aguardar_resposta), se pediu' }
-        tela:
-          type: string
-          description: 'Fim da tela, só em pedindo_permissao'
         nao_ouvidas: { type: integer, description: 'Textos do agente depois do ponteiro do que o Rafael ouviu e da última fala dele na sessão' }
-        ultima: { type: string, description: 'Último texto do agente, encurtado' }
+        ultima: { type: string, description: 'Começo do último texto do agente, até uns 200 caracteres: o texto inteiro, a tela e as novidades vêm na situação da sessão' }
         ultima_em: { type: string, format: date-time }
     NovidadeDeVoz:
       type: object

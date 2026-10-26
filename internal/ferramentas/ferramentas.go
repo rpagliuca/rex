@@ -125,7 +125,7 @@ func (f *Ferramentas) Servidor() *mcp.Server {
 	mcp.AddTool(s, &mcp.Tool{Name: "cancelar_lembrete", Description: "Cancela um lembrete que não vale mais. Só quando o Rafael disser que não vale mais; para mudar texto, hora ou ligações, alterar_lembrete."}, f.cancelarLembrete)
 	mcp.AddTool(s, &mcp.Tool{Name: "aguardar_resposta", Description: "Avisa que a sessão deste chat entregou ou está bloqueada e espera o Rafael (aprovação, decisão, informação). Aparece nas pendências até retomar_trabalho ou o encerramento."}, f.aguardarResposta)
 	mcp.AddTool(s, &mcp.Tool{Name: "retomar_trabalho", Description: "Tira a sessão deste chat da espera: o Rafael respondeu e o trabalho continuou."}, f.retomarTrabalho)
-	mcp.AddTool(s, &mcp.Tool{Name: "voz_panorama", Description: "rex voz. As sessões ativas, cada uma com o que o agente faz agora (trabalhando, ocioso, pedindo_permissao com a tela, sem_agente), o que pediu ao Rafael (aguardando), quantas novidades ele não ouviu e o último texto do agente. Responde \"quais sessões esperam meu input?\" numa chamada; não marca nada como ouvido."}, f.vozPanorama)
+	mcp.AddTool(s, &mcp.Tool{Name: "voz_panorama", Description: "rex voz. As sessões ativas, cada uma com o que o agente faz agora (trabalhando, ocioso, pedindo_permissao, sem_agente), o que pediu ao Rafael (aguardando), quantas novidades ele não ouviu e o começo do último texto do agente; a tela e o texto inteiro vêm em voz_situacao. Responde \"quais sessões esperam meu input?\" numa chamada; não marca nada como ouvido."}, f.vozPanorama)
 	mcp.AddTool(s, &mcp.Tool{Name: "voz_situacao", Description: "rex voz. Uma sessão (S-0001, ou a sessão ativa da tarefa T-0001): o que o agente faz agora e as novidades da conversa dele que o Rafael ainda não ouviu. Só leitura: nada fica como ouvido (isso é do conector do app do Claude). esperar_segundos segura até o agente responder ou parar."}, f.vozSituacao)
 	mcp.AddTool(s, &mcp.Tool{Name: "enviar_a_sessao", Description: "Manda uma mensagem deste chat ao agente de outra sessão, para perguntar ou para responder. Ela chega identificada por esta sessão e com a instrução de responder com enviar_a_sessao para cá: a resposta entra neste chat como mensagem nova (não consulte voz_situacao nem leia o tmux dela para esperá-la). Com o agente trabalhando, entra na fila dele. Recusa quando ele espera uma escolha do Rafael na tela. Quando receber \"[rex · de S-… ]\", responda por aqui para essa sessão."}, f.enviarASessao)
 	mcp.AddTool(s, &mcp.Tool{Name: "voz_enviar", Description: "rex voz. Escreve a frase do Rafael no agente da sessão, como pedido N; com o agente trabalhando, entra na fila dele. Recusa quando ele espera uma escolha na tela (use voz_tecla). Para uma sessão falar com outra, enviar_a_sessao."}, f.vozEnviar)
@@ -144,11 +144,13 @@ func (f *Ferramentas) ServidorDoConector() *mcp.Server {
 			"\"O que a do deploy disse?\": voz_situacao e resuma as novidades. \"Diz pra ela…\": voz_enviar com a frase como ele disse, " +
 			"depois voz_situacao com esperar_segundos 12 para contar a resposta. Lembrete, tarefa ou outro pedido sem sessão própria: voz_enviar ao Agente Global, " +
 			"com o quando nas palavras dele (\"semana que vem\", \"no almoço\", \"em abril\"), sem trocar por data ou hora. Na fala: curto, sem ids (chame cada sessão pelo nome curto " +
-			"lido como palavras), números por extenso. Antes de voz_tecla, leia a tela, diga as opções e aperte só a que ele escolher.",
+			"lido como palavras), números por extenso. Antes de voz_tecla, leia a tela, diga as opções e aperte só a que ele escolher. " +
+			"Consultas respondem direto, sem passar por agente: lembretes com proximos_lembretes (\"o que tenho amanhã?\" é horas 48; \"esta semana\", 168), " +
+			"tarefas com consultar_tarefas e obter_tarefa. voz_panorama é leve (começo do último texto); o detalhe de uma sessão vem em voz_situacao.",
 	})
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "voz_panorama",
-		Description: "As sessões de trabalho ativas no rex, cada uma com o que o agente faz agora (trabalhando, ocioso, pedindo_permissao com a tela, sem_agente), o que pediu ao Rafael (aguardando), quantas novidades ele não ouviu e o último texto do agente. Responde \"quais sessões esperam meu input?\" numa chamada. Só leitura.",
+		Description: "As sessões de trabalho ativas no rex, cada uma com o que o agente faz agora (trabalhando, ocioso, pedindo_permissao, sem_agente), o que pediu ao Rafael (aguardando), quantas novidades ele não ouviu e o começo do último texto do agente; a tela e o texto inteiro vêm em voz_situacao. Responde \"quais sessões esperam meu input?\" numa chamada. Só leitura.",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true, Title: "Panorama das sessões"},
 	}, f.vozPanorama)
 	mcp.AddTool(s, &mcp.Tool{
@@ -166,6 +168,22 @@ func (f *Ferramentas) ServidorDoConector() *mcp.Server {
 		Description: "Aperta, no agente da sessão, a opção que o Rafael escolheu numa tela de permissão (1 a 4, Enter) ou Escape para interromper o agente. Só depois de ele dizer qual.",
 		Annotations: &mcp.ToolAnnotations{DestructiveHint: ptr(true), Title: "Responder tela de permissão"},
 	}, f.vozTecla)
+	// Leituras que o conector responde sozinho: mandar ao agente global custa um turno dele (~20 s).
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "proximos_lembretes",
+		Description: "Lembretes que pedem atenção: os disparados e os que vencem nas próximas horas (padrão 24). Só id, texto, hora, precisão e status. Só leitura.",
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true, Title: "Próximos lembretes"},
+	}, f.proximosLembretes)
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "consultar_tarefas",
+		Description: "Tarefas por status (um ou mais: a_fazer, em_andamento, pausada, bloqueada, em_validacao, concluida), organização (Cartório, Yes, Pessoal), componente ou requisito; exige ao menos um filtro. Só id, título, status, organização, sessão ativa e o que ela espera do Rafael. Só leitura.",
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true, Title: "Consultar tarefas"},
+	}, f.consultarTarefas)
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "obter_tarefa",
+		Description: "Uma tarefa (T-0001): descrição, status, resumo para retomar e sessão ativa. Só leitura.",
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true, Title: "Ver uma tarefa"},
+	}, f.obterTarefa)
 	return s
 }
 

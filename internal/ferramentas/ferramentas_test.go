@@ -485,7 +485,7 @@ func TestServidorDoConectorSoVozEmProcesso(t *testing.T) {
 	for _, f := range lista.Tools {
 		nomes = append(nomes, f.Name)
 	}
-	if err != nil || strings.Join(nomes, ",") != "voz_enviar,voz_panorama,voz_situacao,voz_tecla" {
+	if err != nil || strings.Join(nomes, ",") != "consultar_tarefas,obter_tarefa,proximos_lembretes,voz_enviar,voz_panorama,voz_situacao,voz_tecla" {
 		t.Fatalf("ferramentas do conector: %v %+v", err, lista)
 	}
 	c := &chat{t: t, sessao: sessao}
@@ -493,5 +493,10 @@ func TestServidorDoConectorSoVozEmProcesso(t *testing.T) {
 	c.chamar("voz_panorama", map[string]any{}, &panorama)
 	if panorama.Sessoes == nil {
 		t.Fatal("panorama sem a lista de sessões")
+	}
+	var lembretes Lembretes
+	c.chamar("proximos_lembretes", map[string]any{}, &lembretes)
+	if lembretes.Lembretes == nil {
+		t.Fatal("lembretes sem a lista")
 	}
 }
