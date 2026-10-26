@@ -485,7 +485,7 @@ func TestServidorDoConectorSoVozEmProcesso(t *testing.T) {
 	for _, f := range lista.Tools {
 		nomes = append(nomes, f.Name)
 	}
-	if err != nil || strings.Join(nomes, ",") != "consultar_tarefas,obter_tarefa,proximos_lembretes,voz_enviar,voz_panorama,voz_situacao,voz_tecla" {
+	if err != nil || strings.Join(nomes, ",") != "adiar_lembrete,alterar_lembrete,cancelar_lembrete,confirmar_lembrete,consultar_tarefas,criar_lembrete,criar_tarefa,lancar_agente,obter_tarefa,opcoes_do_lancador,proximos_lembretes,voz_enviar,voz_panorama,voz_situacao,voz_tecla" {
 		t.Fatalf("ferramentas do conector: %v %+v", err, lista)
 	}
 	c := &chat{t: t, sessao: sessao}
@@ -496,7 +496,20 @@ func TestServidorDoConectorSoVozEmProcesso(t *testing.T) {
 	}
 	var lembretes Lembretes
 	c.chamar("proximos_lembretes", map[string]any{}, &lembretes)
-	if lembretes.Lembretes == nil {
-		t.Fatal("lembretes sem a lista")
+	if lembretes.Lembretes == nil || lembretes.Agora == "" {
+		t.Fatalf("lembretes sem a lista ou a hora: %+v", lembretes)
+	}
+	// O conector cria e confirma lembretes sem sessão aberta: o autor é local, como no frontend.
+	var lembrete ResumoDeLembrete
+	c.chamar("criar_lembrete", map[string]any{"texto": "ligar para o cartório", "quando": "2030-01-02T14:00:00-03:00",
+		"precisao": "hora", "organizacao": "Pessoal"}, &lembrete)
+	c.chamar("confirmar_lembrete", map[string]any{"id": lembrete.Id}, &lembrete)
+	if lembrete.Status != "confirmado" {
+		t.Fatalf("lembrete pelo conector: %+v", lembrete)
+	}
+	var tarefa api.Tarefa
+	c.chamar("criar_tarefa", map[string]any{"titulo": "Rever o backup", "organizacao": "Pessoal"}, &tarefa)
+	if tarefa.Id == "" {
+		t.Fatalf("tarefa pelo conector: %+v", tarefa)
 	}
 }
