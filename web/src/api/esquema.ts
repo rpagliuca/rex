@@ -858,34 +858,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/captura": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Entrada por voz ou outro canal sem sessão (atalhos da Siri). Texto livre; o servidor interpreta
-         *     data e hora em português no fuso configurado. A resposta é uma frase curta em text/plain para
-         *     ser falada, em sucesso e em erro. Autor no log de eventos: "captura".
-         *     - lembrete: precisa de uma hora inequívoca no texto; sem ela, 422 pedindo de novo.
-         *     - tarefa: sempre a_fazer, nunca aciona o lançador.
-         *     - requisito: título verbatim, sob o zero da organização, para triagem.
-         *     Repetir com a mesma `chave` devolve o mesmo resultado (200) sem criar outro.
-         *     Horas relativas ("daqui a 20 minutos", "amanhã às 9") contam de `dita_em`, não da chegada.
-         *     Lembrete cuja hora já passou quando o pedido chega (fila atrasada) é criado e disparado na
-         *     hora, marcado como atrasado, e a frase diz isso; hora no passado em relação a `dita_em` é 422.
-         *     Frases de até 200 caracteres. 5xx: o canal pode reenviar com a mesma `chave`.
-         *      */
-        post: operations["capturar"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/voz/sessoes": {
         parameters: {
             query?: never;
@@ -1471,7 +1443,7 @@ export interface components {
             /** @example R-0001 */
             requisito?: string;
             status: components["schemas"]["StatusLembrete"];
-            /** @description Sessão (S-0001), "local" ou "captura" */
+            /** @description Sessão (S-0001) ou "local" */
             autor: string;
             /**
              * Format: date-time
@@ -1624,24 +1596,6 @@ export interface components {
              * @description Id do último evento quando o retrato foi tirado; serve de cursor para GET /eventos?depois=
              */
             ultimo_evento: number;
-        };
-        /** @enum {string} */
-        TipoDeCaptura: "lembrete" | "tarefa" | "requisito";
-        Captura: {
-            tipo: components["schemas"]["TipoDeCaptura"];
-            /** @description O que foi ditado, inteiro. Lembrete: o texto e a hora juntos ("ligar para o contador amanhã às 9") */
-            texto: string;
-            /** @description Padrão: a configurada no servidor */
-            organizacao?: string;
-            /** @description Chave de idempotência do canal (ex.: id da mensagem na fila); repetições não duplicam */
-            chave?: string;
-            /**
-             * Format: date-time
-             * @description Quando o pedido foi falado; referência das horas relativas. Padrão: a chegada
-             */
-            dita_em?: string;
-            /** @description Só interpreta e devolve a frase, sem criar nada */
-            simular?: boolean;
         };
         /** @description Corpo de um gancho (webhook) ou stdin de um comando, configurados em -integracoes (ver
          *     docs/integracao.md). Traz o estado atual da entidade do evento, para o consumidor não chamar
@@ -3297,79 +3251,6 @@ export interface operations {
                 };
             };
             400: components["responses"]["Erro"];
-        };
-    };
-    capturar: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["Captura"];
-            };
-        };
-        responses: {
-            /** @description Repetição de uma `chave` já processada, ou `simular: true` */
-            200: {
-                headers: {
-                    /** @description Identificador já criado (ausente na simulação) */
-                    "X-rex-Id"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "text/plain": string;
-                };
-            };
-            /** @description Criado */
-            201: {
-                headers: {
-                    /** @description Identificador criado (L-0001, T-0001 ou R-0001) */
-                    "X-rex-Id"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "text/plain": string;
-                };
-            };
-            /** @description Pedido malformado (tipo desconhecido, texto vazio) */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "text/plain": string;
-                };
-            };
-            /** @description Token de captura ausente ou errado */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "text/plain": string;
-                };
-            };
-            /** @description Captura desligada nesta instalação */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "text/plain": string;
-                };
-            };
-            /** @description Não deu para entender (hora ausente, ambígua ou no passado); a frase pede de novo */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "text/plain": string;
-                };
-            };
         };
     };
     panoramaDaVoz: {

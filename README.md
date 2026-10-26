@@ -90,9 +90,9 @@ o lançador e as integrações) continuam abertos. Configuração e HTTPS em [`d
 Lembretes (`/lembretes`) têm hora marcada e são disparados pelo próprio `rex servir` (a cada
 15 s; os que venceram com o servidor parado disparam ao subir, marcados como atrasados). O rex
 não fala com celular, barra de status nem assistente de voz: com `-integracoes integracoes.json`,
-cada instalação liga ganchos (comando ou webhook) aos eventos, consulta
-`GET /integracao/pendencias` por polling e aceita pedidos ditados em `POST /captura`. Desenho,
-configuração e garantias em [`docs/integracao.md`](docs/integracao.md).
+cada instalação liga ganchos (comando ou webhook) aos eventos e consulta
+`GET /integracao/pendencias` por polling. Desenho, configuração e garantias em
+[`docs/integracao.md`](docs/integracao.md).
 
 ## Desenvolver
 
@@ -112,4 +112,4 @@ REX_API=http://127.0.0.1:8787 npm run dev   # desenvolvimento, com a API encamin
 ```
 
 O frontend fica em `/` e navega pelo hash da URL (`/#/tarefas/T-0001`); os caminhos `/tarefas`,
-`/sessoes`, `/eventos`, `/importacao`, `/lancador`, `/lembretes`, `/integracao` e `/captura` são da API.
+`/sessoes`, `/eventos`, `/importacao`, `/lancador`, `/lembretes` e `/integracao` são da API.

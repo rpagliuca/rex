@@ -5,7 +5,7 @@ info:
   description: |
     API de Tarefas e Sessões de Trabalho do rex.
     Operações sobre uma sessão exigem o token entregue na criação dela.
-    Integrações (lembretes, notificações, agentes, captura): docs/integracao.md.
+    Integrações (lembretes, notificações, agentes): docs/integracao.md.
 paths:
   /tarefas:
     get:
@@ -1080,67 +1080,6 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Pendencias' }
         '400': { $ref: '#/components/responses/Erro' }
-  /captura:
-    post:
-      operationId: capturar
-      description: |
-        Entrada por voz ou outro canal sem sessão (atalhos da Siri). Texto livre; o servidor interpreta
-        data e hora em português no fuso configurado. A resposta é uma frase curta em text/plain para
-        ser falada, em sucesso e em erro. Autor no log de eventos: "captura".
-        - lembrete: precisa de uma hora inequívoca no texto; sem ela, 422 pedindo de novo.
-        - tarefa: sempre a_fazer, nunca aciona o lançador.
-        - requisito: título verbatim, sob o zero da organização, para triagem.
-        Repetir com a mesma `chave` devolve o mesmo resultado (200) sem criar outro.
-        Horas relativas ("daqui a 20 minutos", "amanhã às 9") contam de `dita_em`, não da chegada.
-        Lembrete cuja hora já passou quando o pedido chega (fila atrasada) é criado e disparado na
-        hora, marcado como atrasado, e a frase diz isso; hora no passado em relação a `dita_em` é 422.
-        Frases de até 200 caracteres. 5xx: o canal pode reenviar com a mesma `chave`.
-      security:
-        - tokenDeCaptura: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/Captura' }
-      responses:
-        '201':
-          description: Criado
-          headers:
-            X-rex-Id:
-              description: Identificador criado (L-0001, T-0001 ou R-0001)
-              schema: { type: string }
-          content:
-            text/plain:
-              schema: { type: string, example: 'Lembrete L-0007: ligar para o contador, terça 21/10 às 09:00.' }
-        '200':
-          description: 'Repetição de uma `chave` já processada, ou `simular: true`'
-          headers:
-            X-rex-Id:
-              description: Identificador já criado (ausente na simulação)
-              schema: { type: string }
-          content:
-            text/plain:
-              schema: { type: string }
-        '400':
-          description: Pedido malformado (tipo desconhecido, texto vazio)
-          content:
-            text/plain:
-              schema: { type: string }
-        '401':
-          description: Token de captura ausente ou errado
-          content:
-            text/plain:
-              schema: { type: string }
-        '404':
-          description: Captura desligada nesta instalação
-          content:
-            text/plain:
-              schema: { type: string }
-        '422':
-          description: Não deu para entender (hora ausente, ambígua ou no passado); a frase pede de novo
-          content:
-            text/plain:
-              schema: { type: string, example: 'Não entendi a hora do lembrete. Diga de novo com o dia e a hora.' }
   /voz/sessoes:
     get:
       operationId: panoramaDaVoz
@@ -1233,10 +1172,6 @@ components:
     tokenDaSessao:
       type: http
       scheme: bearer
-    tokenDeCaptura:
-      type: http
-      scheme: bearer
-      description: 'Token fixo da instalação (captura.token_ambiente em -integracoes), só para POST /captura'
   parameters:
     Id:
       name: id
@@ -1818,7 +1753,7 @@ components:
         tarefa: { type: string, example: T-0001 }
         requisito: { type: string, example: R-0001 }
         status: { $ref: '#/components/schemas/StatusLembrete' }
-        autor: { type: string, description: 'Sessão (S-0001), "local" ou "captura"' }
+        autor: { type: string, description: 'Sessão (S-0001) ou "local"' }
         disparado_em: { type: string, format: date-time, description: 'Último disparo' }
         atrasado:
           type: boolean
@@ -1985,28 +1920,6 @@ components:
           type: integer
           format: int64
           description: 'Id do último evento quando o retrato foi tirado; serve de cursor para GET /eventos?depois='
-    TipoDeCaptura:
-      type: string
-      enum: [lembrete, tarefa, requisito]
-    Captura:
-      type: object
-      required: [tipo, texto]
-      properties:
-        tipo: { $ref: '#/components/schemas/TipoDeCaptura' }
-        texto:
-          type: string
-          description: 'O que foi ditado, inteiro. Lembrete: o texto e a hora juntos ("ligar para o contador amanhã às 9")'
-        organizacao: { type: string, description: 'Padrão: a configurada no servidor' }
-        chave:
-          type: string
-          description: 'Chave de idempotência do canal (ex.: id da mensagem na fila); repetições não duplicam'
-        dita_em:
-          type: string
-          format: date-time
-          description: 'Quando o pedido foi falado; referência das horas relativas. Padrão: a chegada'
-        simular:
-          type: boolean
-          description: 'Só interpreta e devolve a frase, sem criar nada'
     Notificacao:
       type: object
       description: |

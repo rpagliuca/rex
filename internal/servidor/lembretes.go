@@ -225,8 +225,8 @@ func curtoDoLembrete(c *string) (any, error) {
 	return v, nil
 }
 
-// inserirLembrete grava um lembrete agendado e o evento; não confere se a hora já passou (a
-// captura aceita, e o agendador o dispara como atrasado).
+// inserirLembrete grava um lembrete agendado e o evento; não confere se a hora já passou (o
+// agendador o dispara como atrasado).
 func (s *Servidor) inserirLembrete(tx *sql.Tx, quem string, novo api.NovoLembrete) (api.Lembrete, error) {
 	if vazio(novo.Texto) {
 		return api.Lembrete{}, falha(http.StatusBadRequest, "o texto é obrigatório")
