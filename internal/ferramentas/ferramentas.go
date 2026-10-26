@@ -141,10 +141,10 @@ var descricoes = map[string]string{
 	"criar_tarefa":       "Cria uma tarefa, já ligada aos requisitos e componentes informados.",
 	"opcoes_do_lancador": "Modelos e esforços que o lançador de agentes aceita, e os padrões.",
 	"lancar_agente":      "Sobe um agente novo (outro chat, em tmux) para trabalhar numa tarefa: põe a tarefa em andamento e abre a sessão de trabalho dele. Para delegar; nunca para a tarefa deste chat. Recusa tarefa com sessão ativa. Para parar o agente depois, mude o status da tarefa (alterar_tarefa).",
-	"criar_lembrete":     "Agenda um lembrete para o Rafael, solto ou ligado a uma tarefa ou requisito. A precisão é obrigatória e vem do que o Rafael disse: hora só quando ele deu data e hora explícitas (\"às 14h\", \"9:30\"); turno para \"de manhã\", \"no almoço\", \"à tarde\", \"à noite\"; dia para \"amanhã\", \"sexta\", \"dia 30\" sem hora; semana para \"semana que vem\", \"na semana do dia 12\"; mes para \"em abril\", \"mês que vem\". Nunca invente uma hora: fora de hora, mande qualquer hora dentro da janela e o rex a troca pelo início dela. Só hora toca alarme; turno, dia, semana e mês são avisados em lote, sem som.",
+	"criar_lembrete":     "Agenda um lembrete para o Rafael, solto ou ligado a uma tarefa ou requisito. A precisão é obrigatória e vem do que o Rafael disse: hora só quando ele deu data e hora explícitas (\"às 14h\", \"9:30\"); turno para \"de manhã\", \"no almoço\", \"à tarde\", \"à noite\"; dia para \"amanhã\", \"sexta\", \"dia 30\" sem hora; semana para \"semana que vem\", \"na semana do dia 12\"; mes para \"em abril\", \"mês que vem\". Nunca invente uma hora: fora de hora, mande qualquer hora dentro da janela e o rex a troca pelo início dela. Só hora toca alarme; turno, dia, semana e mês são avisados em lote, sem som. Preencha curto com a palavra-chave do compromisso (até 10 caracteres, como ballet ou dentista): é o que cabe na ilha do iPhone.",
 	"proximos_lembretes": "Lembretes que pedem atenção: os disparados e os que vencem nas próximas horas (padrão 24). Só id, texto, hora, precisão e status, e a hora de agora (agora), para calcular o quando de um lembrete novo.",
 	"adiar_lembrete":     "Reagenda um lembrete para daqui a N minutos ou para uma hora (RFC 3339).",
-	"alterar_lembrete":   "Corrige texto, hora, precisão, organização ou ligações de um lembrete, mantendo o id: nunca cancele e recrie para isso. Só os campos informados mudam; tarefa ou requisito vazio remove a ligação. Confirmado ou cancelado não muda.",
+	"alterar_lembrete":   "Corrige texto, palavra-chave (curto), hora, precisão, organização ou ligações de um lembrete, mantendo o id: nunca cancele e recrie para isso. Só os campos informados mudam; tarefa ou requisito vazio remove a ligação. Confirmado ou cancelado não muda.",
 	"confirmar_lembrete": "Marca o lembrete como visto: ele para de pedir atenção. Só quando o Rafael disser que viu ou fez.",
 	"cancelar_lembrete":  "Cancela um lembrete que não vale mais. Só quando o Rafael disser que não vale mais; para mudar texto, hora ou ligações, alterar_lembrete.",
 }
@@ -847,6 +847,7 @@ func (f *Ferramentas) criarOrigem(ctx context.Context, _ *mcp.CallToolRequest, i
 
 type NovoLembrete struct {
 	Texto       string `json:"texto" jsonschema:"o que lembrar, como o Rafael vai ler"`
+	Curto       string `json:"curto,omitempty" jsonschema:"palavra-chave do lembrete, até 10 caracteres, para a ilha do iPhone (ballet, dentista, Vivo); escolha a que identifica o compromisso"`
 	Quando      string `json:"quando" jsonschema:"hora marcada em RFC 3339 com fuso, como 2026-10-21T09:00:00-03:00; fora de hora, uma hora dentro da janela: em turno, é ela que escolhe o turno (manhã 10:00, almoço 12:30, tarde 15:00, noite 20:00); em dia, semana ou mês, qualquer hora de um dia dentro dele"`
 	Precisao    string `json:"precisao" jsonschema:"hora (o Rafael disse data e hora explícitas), turno (manhã, almoço, tarde ou noite), dia (um dia, sem hora), semana (uma semana, sem dia) ou mes (um mês, sem dia); infira da mensagem dele"`
 	Organizacao string `json:"organizacao" jsonschema:"Cartório, Yes ou Pessoal (ou a da instalação)"`
@@ -857,6 +858,7 @@ type NovoLembrete struct {
 type ResumoDeLembrete struct {
 	Id       string `json:"id"`
 	Texto    string `json:"texto"`
+	Curto    string `json:"curto,omitempty"`
 	Quando   string `json:"quando"`
 	Precisao string `json:"precisao"`
 	Status   string `json:"status"`
@@ -881,6 +883,7 @@ type AdiamentoDeLembrete struct {
 type AlteracaoDeLembrete struct {
 	Id          string  `json:"id" jsonschema:"lembrete, como L-0001"`
 	Texto       string  `json:"texto,omitempty" jsonschema:"novo texto, como o Rafael vai ler"`
+	Curto       *string `json:"curto,omitempty" jsonschema:"nova palavra-chave, até 10 caracteres; vazio remove"`
 	Quando      string  `json:"quando,omitempty" jsonschema:"nova hora marcada, em RFC 3339 com fuso"`
 	Precisao    string  `json:"precisao,omitempty" jsonschema:"nova precisão: hora, turno, dia, semana ou mes"`
 	Organizacao string  `json:"organizacao,omitempty" jsonschema:"nova organização"`
@@ -893,7 +896,11 @@ type Espera struct {
 }
 
 func resumirLembrete(x api.Lembrete) ResumoDeLembrete {
-	return ResumoDeLembrete{x.Id, x.Texto, x.Quando.Format(time.RFC3339), string(x.Precisao), string(x.Status)}
+	r := ResumoDeLembrete{Id: x.Id, Texto: x.Texto, Quando: x.Quando.Format(time.RFC3339), Precisao: string(x.Precisao), Status: string(x.Status)}
+	if x.Curto != nil {
+		r.Curto = *x.Curto
+	}
+	return r
 }
 
 func lerHora(campo, valor string) (time.Time, error) {
@@ -915,7 +922,7 @@ func (f *Ferramentas) criarLembrete(ctx context.Context, _ *mcp.CallToolRequest,
 	precisao := api.PrecisaoLembrete(in.Precisao)
 	var x api.Lembrete
 	resp, err := f.cliente.CriarLembrete(ctx, api.NovoLembrete{
-		Texto: in.Texto, Quando: quando, Precisao: &precisao, Organizacao: in.Organizacao, Tarefa: opcional(in.Tarefa), Requisito: opcional(in.Requisito),
+		Texto: in.Texto, Curto: opcional(in.Curto), Quando: quando, Precisao: &precisao, Organizacao: in.Organizacao, Tarefa: opcional(in.Tarefa), Requisito: opcional(in.Requisito),
 	}, f.autorizar)
 	if err := decodificar(resp, err, &x); err != nil {
 		return nil, ResumoDeLembrete{}, err
@@ -962,7 +969,7 @@ func (f *Ferramentas) adiarLembrete(ctx context.Context, _ *mcp.CallToolRequest,
 }
 
 func (f *Ferramentas) alterarLembrete(ctx context.Context, _ *mcp.CallToolRequest, in AlteracaoDeLembrete) (*mcp.CallToolResult, ResumoDeLembrete, error) {
-	a := api.AlteracaoLembrete{Texto: opcional(in.Texto), Organizacao: opcional(in.Organizacao), Tarefa: in.Tarefa, Requisito: in.Requisito}
+	a := api.AlteracaoLembrete{Texto: opcional(in.Texto), Curto: in.Curto, Organizacao: opcional(in.Organizacao), Tarefa: in.Tarefa, Requisito: in.Requisito}
 	if in.Quando != "" {
 		quando, err := lerHora("quando", in.Quando)
 		if err != nil {

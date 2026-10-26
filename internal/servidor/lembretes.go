@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/rpagliuca/rex/api"
 )
@@ -15,7 +16,7 @@ func idLembrete(n int64) string { return idCom("L", n) }
 // toleranciaDeDisparo: um disparo até este tempo depois da hora não conta como atrasado.
 const toleranciaDeDisparo = time.Minute
 
-const colunasLembrete = `id, texto, quando, precisao, organizacao, tarefa_id, requisito_id, status, autor, disparado_em, atrasado,
+const colunasLembrete = `id, texto, curto, quando, precisao, organizacao, tarefa_id, requisito_id, status, autor, disparado_em, atrasado,
 	adiamentos, confirmado_em, criado_em, atualizado_em`
 
 // pendente: os status que ainda pedem atenção.
@@ -26,13 +27,16 @@ func (s *Servidor) lerLembrete(linha varredor) (api.Lembrete, error) {
 	var n int64
 	var quando, precisao, status, criado, atualizado string
 	var tarefa, requisito sql.NullInt64
-	var disparado, confirmado sql.NullString
+	var curto, disparado, confirmado sql.NullString
 	var atrasado bool
-	if err := linha.Scan(&n, &x.Texto, &quando, &precisao, &x.Organizacao, &tarefa, &requisito, &status, &x.Autor, &disparado,
+	if err := linha.Scan(&n, &x.Texto, &curto, &quando, &precisao, &x.Organizacao, &tarefa, &requisito, &status, &x.Autor, &disparado,
 		&atrasado, &x.Adiamentos, &confirmado, &criado, &atualizado); err != nil {
 		return x, err
 	}
 	x.Id = idLembrete(n)
+	if curto.Valid {
+		x.Curto = &curto.String
+	}
 	x.Quando, _ = time.Parse(time.RFC3339, quando)
 	x.Precisao = api.PrecisaoLembrete(precisao)
 	if x.Precisao != api.PrecisaoHora {
@@ -206,6 +210,21 @@ func (s *Servidor) CriarLembrete(w http.ResponseWriter, r *http.Request) {
 	responder(w, http.StatusCreated, criado)
 }
 
+// maxCurto: o resumo da ilha do iPhone mostra "16:50 " + a palavra-chave num valor de 16 caracteres.
+const maxCurto = 10
+
+// curtoDoLembrete: a palavra-chave aparada; vazia (ou ausente) vira NULL.
+func curtoDoLembrete(c *string) (any, error) {
+	if c == nil || vazio(*c) {
+		return nil, nil
+	}
+	v := strings.TrimSpace(*c)
+	if n := utf8.RuneCountInString(v); n > maxCurto {
+		return nil, falha(http.StatusBadRequest, "curto tem no máximo %d caracteres (%q tem %d)", maxCurto, v, n)
+	}
+	return v, nil
+}
+
 // inserirLembrete grava um lembrete agendado e o evento; não confere se a hora já passou (a
 // captura aceita, e o agendador o dispara como atrasado).
 func (s *Servidor) inserirLembrete(tx *sql.Tx, quem string, novo api.NovoLembrete) (api.Lembrete, error) {
@@ -222,13 +241,17 @@ func (s *Servidor) inserirLembrete(tx *sql.Tx, quem string, novo api.NovoLembret
 	if novo.Precisao != nil {
 		precisao = *novo.Precisao
 	}
+	curto, err := curtoDoLembrete(novo.Curto)
+	if err != nil {
+		return api.Lembrete{}, err
+	}
 	tarefa, requisito, err := ligacoesDoLembrete(tx, novo.Tarefa, novo.Requisito)
 	if err != nil {
 		return api.Lembrete{}, err
 	}
 	agora := s.momento()
-	res, err := tx.Exec(`INSERT INTO lembretes (texto, quando, quando_utc, precisao, organizacao, tarefa_id, requisito_id, autor, criado_em, atualizado_em)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, strings.TrimSpace(novo.Texto), novo.Quando.Format(time.RFC3339), utc(novo.Quando),
+	res, err := tx.Exec(`INSERT INTO lembretes (texto, curto, quando, quando_utc, precisao, organizacao, tarefa_id, requisito_id, autor, criado_em, atualizado_em)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, strings.TrimSpace(novo.Texto), curto, novo.Quando.Format(time.RFC3339), utc(novo.Quando),
 		string(precisao), strings.TrimSpace(novo.Organizacao), tarefa, requisito, quem, agora, agora)
 	if err != nil {
 		return api.Lembrete{}, err
@@ -321,6 +344,13 @@ func (s *Servidor) AlterarLembrete(w http.ResponseWriter, r *http.Request, id ap
 				return falha(http.StatusBadRequest, "o texto não pode ficar vazio")
 			}
 			definir("texto", strings.TrimSpace(*alteracao.Texto))
+		}
+		if alteracao.Curto != nil {
+			curto, err := curtoDoLembrete(alteracao.Curto)
+			if err != nil {
+				return err
+			}
+			definir("curto", curto)
 		}
 		if alteracao.Organizacao != nil {
 			if vazio(*alteracao.Organizacao) {

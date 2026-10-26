@@ -164,8 +164,10 @@ sexta às 9"): `criar_lembrete` com `quando` em RFC 3339 com fuso, ligado à tar
 "de manhã", "no almoço", "à tarde" ou "à noite", `dia` para "amanhã" ou "sexta" sem hora, `semana`
 para "semana que vem" ou "próxima semana", `mes` para "em abril" ou "mês que vem"; com o dia dentro
 deles ("quarta da semana que vem"), `dia`. Nunca invente uma hora para o que não tem: só `hora` toca
-alarme; os demais são avisados em lote, sem som. `proximos_lembretes` mostra o que vence;
-`confirmar_lembrete` só quando ele disser que viu ou fez. Para mudar o texto, a hora, a precisão ou a
+alarme; os demais são avisados em lote, sem som. Preencha `curto` com a palavra-chave do compromisso
+(até 10 caracteres: "ballet", "dentista", "Vivo"): é o que cabe no resumo da ilha do iPhone, e sem
+ela a ilha mostra o começo do texto. `proximos_lembretes` mostra o que vence;
+`confirmar_lembrete` só quando ele disser que viu ou fez. Para mudar o texto, o curto, a hora, a precisão ou a
 ligação de um lembrete, `alterar_lembrete` (mantém o id); `cancelar_lembrete` só quando ele disser
 que o lembrete não vale mais. Nunca cancele e recrie para editar: o Rafael vê o antigo como
 cancelado, e cancelado não volta. O rex guarda a hora; avisar com antecedência é das integrações.

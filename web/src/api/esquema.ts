@@ -1449,6 +1449,11 @@ export interface components {
             id: string;
             texto: string;
             /**
+             * @description Palavra-chave para os resumos de pouco espaço (a ilha do iPhone), até 10 caracteres
+             * @example ballet
+             */
+            curto?: string;
+            /**
              * Format: date-time
              * @description Hora marcada atual (após adiamentos), com o fuso em que foi pedida
              * @example 2026-10-21T09:00:00-03:00
@@ -1488,6 +1493,8 @@ export interface components {
         };
         NovoLembrete: {
             texto: string;
+            /** @description Palavra-chave do lembrete, até 10 caracteres ("ballet", "dentista"); sem ela, as integrações usam o começo do texto */
+            curto?: string;
             /**
              * Format: date-time
              * @description Instante com fuso; no passado é recusado. Em turno ou dia, qualquer hora do turno ou do
@@ -1503,6 +1510,8 @@ export interface components {
         };
         AlteracaoLembrete: {
             texto?: string;
+            /** @description Vazio remove a palavra-chave */
+            curto?: string;
             /** Format: date-time */
             quando?: string;
             /** @description Mudar a precisão (ou a hora de um turno ou dia) põe `quando` no início da janela */

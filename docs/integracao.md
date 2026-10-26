@@ -141,6 +141,12 @@ Todo lembrete tem `precisao`:
 O `POST /lembretes` sem `precisao` assume `hora`; a ferramenta `criar_lembrete` do MCP exige que o
 agente escolha, pelo que o usuário disse.
 
+### Palavra-chave: `curto`
+
+Opcional, até 10 caracteres: a palavra que identifica o compromisso ("ballet", "dentista"), para os
+consumidores com pouco espaço (a ilha do iPhone mostra "16:50 ballet" num valor de 16 caracteres).
+Sem ela, o consumidor usa o começo do texto. No `PATCH`, vazio remove.
+
 ## Captura
 
 `POST /captura` com `Authorization: Bearer <token de captura>`:

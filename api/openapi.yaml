@@ -1800,6 +1800,10 @@ components:
       properties:
         id: { type: string, example: L-0001 }
         texto: { type: string }
+        curto:
+          type: string
+          description: 'Palavra-chave para os resumos de pouco espaço (a ilha do iPhone), até 10 caracteres'
+          example: ballet
         quando:
           type: string
           format: date-time
@@ -1829,6 +1833,10 @@ components:
       required: [texto, quando, organizacao]
       properties:
         texto: { type: string }
+        curto:
+          type: string
+          maxLength: 10
+          description: 'Palavra-chave do lembrete, até 10 caracteres ("ballet", "dentista"); sem ela, as integrações usam o começo do texto'
         quando:
           type: string
           format: date-time
@@ -1845,6 +1853,7 @@ components:
       type: object
       properties:
         texto: { type: string }
+        curto: { type: string, maxLength: 10, description: 'Vazio remove a palavra-chave' }
         quando: { type: string, format: date-time }
         precisao:
           allOf: [{ $ref: '#/components/schemas/PrecisaoLembrete' }]
