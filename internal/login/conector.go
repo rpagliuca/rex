@@ -12,12 +12,14 @@ package login
 // redirect_uri do Claude (claude.ai, claude.com) ou de loopback (Claude Code).
 
 import (
+	"bytes"
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -106,11 +108,39 @@ func (l *Login) rotasDoConector(mux *http.ServeMux) {
 func registrar(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		inicio := time.Now()
+		metodo := metodoMCP(r)
 		e := &escritorRegistrado{ResponseWriter: w, status: http.StatusOK}
 		h.ServeHTTP(e, r)
-		log.Printf("conector: %s %s → %d em %s (%s)%s", r.Method, r.URL.Path, e.status,
+		log.Printf("conector: %s %s%s → %d em %s (%s)%s", r.Method, r.URL.Path, metodo, e.status,
 			time.Since(inicio).Round(time.Millisecond), r.UserAgent(), e.motivo)
 	})
+}
+
+// metodoMCP lê do corpo de um POST o método JSON-RPC e, numa chamada de ferramenta, o nome dela
+// (" tools/call voz_panorama"), devolvendo o corpo intacto para o handler. Sem parâmetros: eles
+// podem trazer o que o Rafael disse.
+func metodoMCP(r *http.Request) string {
+	if r.Method != http.MethodPost || r.Body == nil {
+		return ""
+	}
+	corpo, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
+	r.Body = io.NopCloser(io.MultiReader(bytes.NewReader(corpo), r.Body))
+	if err != nil {
+		return ""
+	}
+	var m struct {
+		Method string `json:"method"`
+		Params struct {
+			Name string `json:"name"`
+		} `json:"params"`
+	}
+	if json.Unmarshal(corpo, &m) != nil || m.Method == "" {
+		return ""
+	}
+	if m.Params.Name != "" && m.Method == "tools/call" {
+		return " " + m.Method + " " + m.Params.Name
+	}
+	return " " + m.Method
 }
 
 type escritorRegistrado struct {

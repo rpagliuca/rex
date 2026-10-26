@@ -895,7 +895,8 @@ export interface paths {
         };
         /** @description As sessões ativas, cada uma com o que o agente faz agora (lido da tela
          *     do tmux), se pediu resposta ao Rafael, quantas novidades ele ainda não ouviu e o último texto do
-         *     agente. Responde "quais sessões esperam meu input?" numa chamada. Não mexe nos ponteiros.
+         *     agente (só o começo). Leve: responde "quais sessões esperam meu input?" numa chamada; o detalhe
+         *     de uma sessão (tela, novidades inteiras) vem em /voz/sessoes/{id}. Não mexe nos ponteiros.
          *      */
         get: operations["panoramaDaVoz"];
         put?: never;
@@ -1545,13 +1546,13 @@ export interface components {
             /** @description Títulos das tarefas, na mesma ordem */
             titulos?: string[];
             estado: components["schemas"]["EstadoDaVoz"];
+            /** @description Palavras do nome da sessão, para achar a de que o Rafael fala */
+            palavras_chave?: string[];
             /** @description O que o agente pediu ao Rafael (aguardar_resposta), se pediu */
             aguardando?: string;
-            /** @description Fim da tela, só em pedindo_permissao */
-            tela?: string;
             /** @description Textos do agente depois do ponteiro do que o Rafael ouviu e da última fala dele na sessão */
             nao_ouvidas: number;
-            /** @description Último texto do agente, encurtado */
+            /** @description Começo do último texto do agente, até uns 200 caracteres: o texto inteiro, a tela e as novidades vêm na situação da sessão */
             ultima?: string;
             /** Format: date-time */
             ultima_em?: string;

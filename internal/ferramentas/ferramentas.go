@@ -85,9 +85,9 @@ func (f *Ferramentas) Servidor() *mcp.Server {
 			"tarefa e depois criar_tarefa + vincular_tarefa. Ao terminar, encerrar_sessao com um resumo para o próximo agente.",
 	})
 
-	mcp.AddTool(s, &mcp.Tool{Name: "obter_tarefa", Description: "Obtém uma tarefa, incluindo o resumo para retomar e a sessão ativa."}, f.obterTarefa)
-	mcp.AddTool(s, &mcp.Tool{Name: "consultar_tarefas", Description: "Tarefas por status (um ou mais), organização, componente ou requisito; exige ao menos um filtro. Só id, título, status, organização, sessão ativa e o que ela espera do Rafael, da atualizada mais recente à mais antiga, até o limite (padrão 20, máximo 50); total diz quantas casaram e fora, quantas não vieram. Ex.: \"o que está em validação?\" é status [em_validacao]; \"o que tenho da Yes a fazer?\" é status [a_fazer] e organização Yes."}, f.consultarTarefas)
-	mcp.AddTool(s, &mcp.Tool{Name: "criar_tarefa", Description: "Cria uma tarefa, já ligada aos requisitos e componentes informados."}, f.criarTarefa)
+	mcp.AddTool(s, &mcp.Tool{Name: "obter_tarefa", Description: descricoes["obter_tarefa"]}, f.obterTarefa)
+	mcp.AddTool(s, &mcp.Tool{Name: "consultar_tarefas", Description: descricoes["consultar_tarefas"]}, f.consultarTarefas)
+	mcp.AddTool(s, &mcp.Tool{Name: "criar_tarefa", Description: descricoes["criar_tarefa"]}, f.criarTarefa)
 	mcp.AddTool(s, &mcp.Tool{Name: "alterar_tarefa", Description: "Altera campos de uma tarefa."}, f.alterarTarefa)
 	mcp.AddTool(s, &mcp.Tool{Name: "historico_da_tarefa", Description: "Lista as sessões que trabalharam na tarefa, da mais recente para a mais antiga."}, f.historicoDaTarefa)
 	mcp.AddTool(s, &mcp.Tool{Name: "iniciar_sessao", Description: "Abre a Sessão de Trabalho deste chat, nas tarefas dadas ou sem nenhuma (vincule depois). Cria a pasta do journal. Recusa tarefa que já tem sessão ativa."}, f.iniciarSessao)
@@ -110,28 +110,63 @@ func (f *Ferramentas) Servidor() *mcp.Server {
 	mcp.AddTool(s, &mcp.Tool{Name: "listar_componentes", Description: "Lista os componentes (repositórios, módulos, lugares, funcionalidades…) com os requisitos e tarefas de cada um, para reaproveitar em vez de duplicar."}, f.listarComponentes)
 	mcp.AddTool(s, &mcp.Tool{Name: "criar_componente", Description: "Cria um componente: qualquer coisa reaproveitável a que requisitos e tarefas se referem."}, f.criarComponente)
 	mcp.AddTool(s, &mcp.Tool{Name: "vincular_componente", Description: "Liga um componente a um requisito ou a uma tarefa (informe um dos dois)."}, f.vincularComponente)
-	mcp.AddTool(s, &mcp.Tool{Name: "opcoes_do_lancador", Description: "Modelos e esforços que o lançador de agentes aceita, e os padrões."}, f.opcoesDoLancador)
-	mcp.AddTool(s, &mcp.Tool{Name: "lancar_agente", Description: "Sobe um agente novo (outro chat, em tmux) para trabalhar numa tarefa: põe a tarefa em andamento e abre a sessão de trabalho dele. Para delegar; nunca para a tarefa deste chat. Recusa tarefa com sessão ativa. Para parar o agente depois, mude o status da tarefa (alterar_tarefa)."}, f.lancarAgente)
+	mcp.AddTool(s, &mcp.Tool{Name: "opcoes_do_lancador", Description: descricoes["opcoes_do_lancador"]}, f.opcoesDoLancador)
+	mcp.AddTool(s, &mcp.Tool{Name: "lancar_agente", Description: descricoes["lancar_agente"]}, f.lancarAgente)
 	mcp.AddTool(s, &mcp.Tool{Name: "agentes_ativos", Description: "Sessões de trabalho ativas agora: id, agente, tarefas e início. Para saber quem está trabalhando em quê."}, f.agentesAtivos)
 	mcp.AddTool(s, &mcp.Tool{Name: "listar_templates", Description: "Tarefas pré-moldadas (templates): id, título, organização, periodicidade, se está devida e a instância aberta."}, f.listarTemplates)
 	mcp.AddTool(s, &mcp.Tool{Name: "instanciar_template", Description: "Cria uma tarefa (a fazer) a partir de uma pré-moldada, com o contexto desta vez no topo da descrição e os requisitos dela. Não sobe agente: para isso, lancar_agente na tarefa criada."}, f.instanciarTemplate)
 	mcp.AddTool(s, &mcp.Tool{Name: "listar_origens", Description: "Lista as origens de requisitos (pessoas e documentos), para reaproveitar em vez de duplicar."}, f.listarOrigens)
 	mcp.AddTool(s, &mcp.Tool{Name: "criar_origem", Description: "Cria uma origem de requisitos: uma pessoa (quem pede) ou um documento (lei, norma, contrato)."}, f.criarOrigem)
-	mcp.AddTool(s, &mcp.Tool{Name: "criar_lembrete", Description: "Agenda um lembrete para o Rafael, solto ou ligado a uma tarefa ou requisito. A precisão é obrigatória e vem do que o Rafael disse: hora só quando ele deu data e hora explícitas (\"às 14h\", \"9:30\"); turno para \"de manhã\", \"no almoço\", \"à tarde\", \"à noite\"; dia para \"amanhã\", \"sexta\", \"dia 30\" sem hora; semana para \"semana que vem\", \"na semana do dia 12\"; mes para \"em abril\", \"mês que vem\". Nunca invente uma hora: fora de hora, mande qualquer hora dentro da janela e o rex a troca pelo início dela. Só hora toca alarme; turno, dia, semana e mês são avisados em lote, sem som."}, f.criarLembrete)
-	mcp.AddTool(s, &mcp.Tool{Name: "proximos_lembretes", Description: "Lembretes que pedem atenção: os disparados e os que vencem nas próximas horas (padrão 24). Só id, texto, hora, precisão e status."}, f.proximosLembretes)
-	mcp.AddTool(s, &mcp.Tool{Name: "adiar_lembrete", Description: "Reagenda um lembrete para daqui a N minutos ou para uma hora (RFC 3339)."}, f.adiarLembrete)
-	mcp.AddTool(s, &mcp.Tool{Name: "alterar_lembrete", Description: "Corrige texto, hora, precisão, organização ou ligações de um lembrete, mantendo o id: nunca cancele e recrie para isso. Só os campos informados mudam; tarefa ou requisito vazio remove a ligação. Confirmado ou cancelado não muda."}, f.alterarLembrete)
-	mcp.AddTool(s, &mcp.Tool{Name: "confirmar_lembrete", Description: "Marca o lembrete como visto: ele para de pedir atenção. Só quando o Rafael disser que viu ou fez."}, f.confirmarLembrete)
-	mcp.AddTool(s, &mcp.Tool{Name: "cancelar_lembrete", Description: "Cancela um lembrete que não vale mais. Só quando o Rafael disser que não vale mais; para mudar texto, hora ou ligações, alterar_lembrete."}, f.cancelarLembrete)
+	mcp.AddTool(s, &mcp.Tool{Name: "criar_lembrete", Description: descricoes["criar_lembrete"]}, f.criarLembrete)
+	mcp.AddTool(s, &mcp.Tool{Name: "proximos_lembretes", Description: descricoes["proximos_lembretes"]}, f.proximosLembretes)
+	mcp.AddTool(s, &mcp.Tool{Name: "adiar_lembrete", Description: descricoes["adiar_lembrete"]}, f.adiarLembrete)
+	mcp.AddTool(s, &mcp.Tool{Name: "alterar_lembrete", Description: descricoes["alterar_lembrete"]}, f.alterarLembrete)
+	mcp.AddTool(s, &mcp.Tool{Name: "confirmar_lembrete", Description: descricoes["confirmar_lembrete"]}, f.confirmarLembrete)
+	mcp.AddTool(s, &mcp.Tool{Name: "cancelar_lembrete", Description: descricoes["cancelar_lembrete"]}, f.cancelarLembrete)
 	mcp.AddTool(s, &mcp.Tool{Name: "aguardar_resposta", Description: "Avisa que a sessão deste chat entregou ou está bloqueada e espera o Rafael (aprovação, decisão, informação). Aparece nas pendências até retomar_trabalho ou o encerramento."}, f.aguardarResposta)
 	mcp.AddTool(s, &mcp.Tool{Name: "retomar_trabalho", Description: "Tira a sessão deste chat da espera: o Rafael respondeu e o trabalho continuou."}, f.retomarTrabalho)
-	mcp.AddTool(s, &mcp.Tool{Name: "voz_panorama", Description: "rex voz. As sessões ativas, cada uma com o que o agente faz agora (trabalhando, ocioso, pedindo_permissao com a tela, sem_agente), o que pediu ao Rafael (aguardando), quantas novidades ele não ouviu e o último texto do agente. Responde \"quais sessões esperam meu input?\" numa chamada; não marca nada como ouvido."}, f.vozPanorama)
+	mcp.AddTool(s, &mcp.Tool{Name: "voz_panorama", Description: "rex voz. As sessões ativas, cada uma com o que o agente faz agora (trabalhando, ocioso, pedindo_permissao, sem_agente), o que pediu ao Rafael (aguardando), quantas novidades ele não ouviu e o começo do último texto do agente; a tela e o texto inteiro vêm em voz_situacao. Responde \"quais sessões esperam meu input?\" numa chamada; não marca nada como ouvido."}, f.vozPanorama)
 	mcp.AddTool(s, &mcp.Tool{Name: "voz_situacao", Description: "rex voz. Uma sessão (S-0001, ou a sessão ativa da tarefa T-0001): o que o agente faz agora e as novidades da conversa dele que o Rafael ainda não ouviu. Só leitura: nada fica como ouvido (isso é do conector do app do Claude). esperar_segundos segura até o agente responder ou parar."}, f.vozSituacao)
 	mcp.AddTool(s, &mcp.Tool{Name: "enviar_a_sessao", Description: "Manda uma mensagem deste chat ao agente de outra sessão, para perguntar ou para responder. Ela chega identificada por esta sessão e com a instrução de responder com enviar_a_sessao para cá: a resposta entra neste chat como mensagem nova (não consulte voz_situacao nem leia o tmux dela para esperá-la). Com o agente trabalhando, entra na fila dele. Recusa quando ele espera uma escolha do Rafael na tela. Quando receber \"[rex · de S-… ]\", responda por aqui para essa sessão."}, f.enviarASessao)
 	mcp.AddTool(s, &mcp.Tool{Name: "voz_enviar", Description: "rex voz. Escreve a frase do Rafael no agente da sessão, como pedido N; com o agente trabalhando, entra na fila dele. Recusa quando ele espera uma escolha na tela (use voz_tecla). Para uma sessão falar com outra, enviar_a_sessao."}, f.vozEnviar)
 	mcp.AddTool(s, &mcp.Tool{Name: "voz_tecla", Description: "rex voz. Aperta, no agente da sessão, a opção que o Rafael escolheu numa tela de permissão (1 a 4, Enter) ou Escape para interromper o agente."}, f.vozTecla)
 	mcp.AddTool(s, &mcp.Tool{Name: "listar_eventos", Description: "Lista o log de eventos, opcionalmente de uma entidade (T-0001, S-0001)."}, f.listarEventos)
 	return s
+}
+
+// descricoes são as das ferramentas que os dois servidores (o do agente e o conector) oferecem.
+var descricoes = map[string]string{
+	"obter_tarefa":       "Obtém uma tarefa, incluindo o resumo para retomar e a sessão ativa.",
+	"consultar_tarefas":  "Tarefas por status (um ou mais), organização, componente ou requisito; exige ao menos um filtro. Só id, título, status, organização, sessão ativa e o que ela espera do Rafael, da atualizada mais recente à mais antiga, até o limite (padrão 20, máximo 50); total diz quantas casaram e fora, quantas não vieram. Ex.: \"o que está em validação?\" é status [em_validacao]; \"o que tenho da Yes a fazer?\" é status [a_fazer] e organização Yes.",
+	"criar_tarefa":       "Cria uma tarefa, já ligada aos requisitos e componentes informados.",
+	"opcoes_do_lancador": "Modelos e esforços que o lançador de agentes aceita, e os padrões.",
+	"lancar_agente":      "Sobe um agente novo (outro chat, em tmux) para trabalhar numa tarefa: põe a tarefa em andamento e abre a sessão de trabalho dele. Para delegar; nunca para a tarefa deste chat. Recusa tarefa com sessão ativa. Para parar o agente depois, mude o status da tarefa (alterar_tarefa).",
+	"criar_lembrete":     "Agenda um lembrete para o Rafael, solto ou ligado a uma tarefa ou requisito. A precisão é obrigatória e vem do que o Rafael disse: hora só quando ele deu data e hora explícitas (\"às 14h\", \"9:30\"); turno para \"de manhã\", \"no almoço\", \"à tarde\", \"à noite\"; dia para \"amanhã\", \"sexta\", \"dia 30\" sem hora; semana para \"semana que vem\", \"na semana do dia 12\"; mes para \"em abril\", \"mês que vem\". Nunca invente uma hora: fora de hora, mande qualquer hora dentro da janela e o rex a troca pelo início dela. Só hora toca alarme; turno, dia, semana e mês são avisados em lote, sem som.",
+	"proximos_lembretes": "Lembretes que pedem atenção: os disparados e os que vencem nas próximas horas (padrão 24). Só id, texto, hora, precisão e status, e a hora de agora (agora), para calcular o quando de um lembrete novo.",
+	"adiar_lembrete":     "Reagenda um lembrete para daqui a N minutos ou para uma hora (RFC 3339).",
+	"alterar_lembrete":   "Corrige texto, hora, precisão, organização ou ligações de um lembrete, mantendo o id: nunca cancele e recrie para isso. Só os campos informados mudam; tarefa ou requisito vazio remove a ligação. Confirmado ou cancelado não muda.",
+	"confirmar_lembrete": "Marca o lembrete como visto: ele para de pedir atenção. Só quando o Rafael disser que viu ou fez.",
+	"cancelar_lembrete":  "Cancela um lembrete que não vale mais. Só quando o Rafael disser que não vale mais; para mudar texto, hora ou ligações, alterar_lembrete.",
+}
+
+// anotacoesDoConector dizem ao app do Claude o que cada ferramenta faz, para ele não pedir
+// confirmação a cada leitura.
+var anotacoesDoConector = map[string]*mcp.ToolAnnotations{
+	"obter_tarefa":       {ReadOnlyHint: true, Title: "Ver uma tarefa"},
+	"consultar_tarefas":  {ReadOnlyHint: true, Title: "Consultar tarefas"},
+	"criar_tarefa":       {DestructiveHint: ptr(false), Title: "Criar tarefa"},
+	"opcoes_do_lancador": {ReadOnlyHint: true, Title: "Modelos e esforços do lançador"},
+	"lancar_agente":      {DestructiveHint: ptr(false), Title: "Abrir sessão de trabalho"},
+	"criar_lembrete":     {DestructiveHint: ptr(false), Title: "Criar lembrete"},
+	"proximos_lembretes": {ReadOnlyHint: true, Title: "Próximos lembretes"},
+	"adiar_lembrete":     {DestructiveHint: ptr(false), Title: "Adiar lembrete"},
+	"alterar_lembrete":   {DestructiveHint: ptr(false), IdempotentHint: true, Title: "Alterar lembrete"},
+	"confirmar_lembrete": {DestructiveHint: ptr(false), IdempotentHint: true, Title: "Confirmar lembrete"},
+	"cancelar_lembrete":  {DestructiveHint: ptr(true), IdempotentHint: true, Title: "Cancelar lembrete"},
+}
+
+func doConector(nome string) *mcp.Tool {
+	return &mcp.Tool{Name: nome, Description: descricoes[nome], Annotations: anotacoesDoConector[nome]}
 }
 
 // ServidorDoConector monta o servidor MCP do conector personalizado do Claude (/mcp, atrás de
@@ -142,13 +177,20 @@ func (f *Ferramentas) ServidorDoConector() *mcp.Server {
 		Instructions: "Sessões de trabalho dos agentes de IA do Rafael no rex, quase sempre usadas por voz. " +
 			"\"Quais sessões esperam meu input?\": voz_panorama; esperam as com aguardando, as em pedindo_permissao e as ociosas com nao_ouvidas. " +
 			"\"O que a do deploy disse?\": voz_situacao e resuma as novidades. \"Diz pra ela…\": voz_enviar com a frase como ele disse, " +
-			"depois voz_situacao com esperar_segundos 12 para contar a resposta. Lembrete, tarefa ou outro pedido sem sessão própria: voz_enviar ao Agente Global, " +
-			"com o quando nas palavras dele (\"semana que vem\", \"no almoço\", \"em abril\"), sem trocar por data ou hora. Na fala: curto, sem ids (chame cada sessão pelo nome curto " +
-			"lido como palavras), números por extenso. Antes de voz_tecla, leia a tela, diga as opções e aperte só a que ele escolher.",
+			"depois voz_situacao com esperar_segundos 12 para contar a resposta. " +
+			"Lembretes você mesmo gerencia (proximos_lembretes, criar_lembrete, alterar_lembrete, adiar_lembrete, confirmar_lembrete, cancelar_lembrete): " +
+			"\"o que tenho amanhã?\" é proximos_lembretes com horas 48, \"esta semana\" 168; a precisão sai das palavras dele, nunca invente uma hora; " +
+			"para criar, calcule o quando a partir do agora de proximos_lembretes; depois de criar ou alterar, diga o que ficou gravado (o rex põe a hora no início da janela). " +
+			"Sessão de trabalho nova: criar_tarefa (título, organização Cartório, Yes ou Pessoal, descrição com o pedido nas palavras dele, status a_fazer) " +
+			"e lancar_agente nela, com o nome curto do assunto; tarefa da Yes leva Work=<código> na primeira linha da descrição, e sem saber o código, " +
+			"mande o pedido ao Agente Global. Consultas de tarefa: consultar_tarefas e obter_tarefa. Outro pedido sem sessão própria: voz_enviar ao Agente Global. " +
+			"Na fala: curto, sem ids (chame cada sessão pelo nome curto lido como palavras), números por extenso. " +
+			"Antes de voz_tecla, leia a tela (voz_situacao), diga as opções e aperte só a que ele escolher. " +
+			"voz_panorama é leve (começo do último texto); o detalhe de uma sessão vem em voz_situacao.",
 	})
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "voz_panorama",
-		Description: "As sessões de trabalho ativas no rex, cada uma com o que o agente faz agora (trabalhando, ocioso, pedindo_permissao com a tela, sem_agente), o que pediu ao Rafael (aguardando), quantas novidades ele não ouviu e o último texto do agente. Responde \"quais sessões esperam meu input?\" numa chamada. Só leitura.",
+		Description: "As sessões de trabalho ativas no rex, cada uma com o que o agente faz agora (trabalhando, ocioso, pedindo_permissao, sem_agente), o que pediu ao Rafael (aguardando), quantas novidades ele não ouviu e o começo do último texto do agente; a tela e o texto inteiro vêm em voz_situacao. Responde \"quais sessões esperam meu input?\" numa chamada. Só leitura.",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true, Title: "Panorama das sessões"},
 	}, f.vozPanorama)
 	mcp.AddTool(s, &mcp.Tool{
@@ -166,6 +208,19 @@ func (f *Ferramentas) ServidorDoConector() *mcp.Server {
 		Description: "Aperta, no agente da sessão, a opção que o Rafael escolheu numa tela de permissão (1 a 4, Enter) ou Escape para interromper o agente. Só depois de ele dizer qual.",
 		Annotations: &mcp.ToolAnnotations{DestructiveHint: ptr(true), Title: "Responder tela de permissão"},
 	}, f.vozTecla)
+	// Lembretes e sessões novas o conector resolve sozinho: mandar ao agente global custa um turno
+	// dele (~20 s). O autor é "local", como no frontend, então lancar_agente aciona o lançador.
+	mcp.AddTool(s, doConector("proximos_lembretes"), f.proximosLembretes)
+	mcp.AddTool(s, doConector("criar_lembrete"), f.criarLembrete)
+	mcp.AddTool(s, doConector("alterar_lembrete"), f.alterarLembrete)
+	mcp.AddTool(s, doConector("adiar_lembrete"), f.adiarLembrete)
+	mcp.AddTool(s, doConector("confirmar_lembrete"), f.confirmarLembrete)
+	mcp.AddTool(s, doConector("cancelar_lembrete"), f.cancelarLembrete)
+	mcp.AddTool(s, doConector("consultar_tarefas"), f.consultarTarefas)
+	mcp.AddTool(s, doConector("obter_tarefa"), f.obterTarefa)
+	mcp.AddTool(s, doConector("criar_tarefa"), f.criarTarefa)
+	mcp.AddTool(s, doConector("opcoes_do_lancador"), f.opcoesDoLancador)
+	mcp.AddTool(s, doConector("lancar_agente"), f.lancarAgente)
 	return s
 }
 
@@ -808,6 +863,8 @@ type ResumoDeLembrete struct {
 }
 
 type Lembretes struct {
+	// Agora é a hora do rex, com fuso: o conector do Claude não sabe a hora para calcular o quando.
+	Agora     string             `json:"agora"`
 	Lembretes []ResumoDeLembrete `json:"lembretes"`
 }
 
@@ -877,7 +934,7 @@ func (f *Ferramentas) proximosLembretes(ctx context.Context, _ *mcp.CallToolRequ
 	if err := decodificar(resp, err, &p); err != nil {
 		return nil, Lembretes{}, err
 	}
-	out := Lembretes{Lembretes: []ResumoDeLembrete{}}
+	out := Lembretes{Agora: time.Now().Format(time.RFC3339), Lembretes: []ResumoDeLembrete{}}
 	for _, x := range p.Lembretes {
 		out.Lembretes = append(out.Lembretes, resumirLembrete(x))
 	}

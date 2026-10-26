@@ -102,8 +102,8 @@ type Lancador struct {
 	maquina string
 	// executar roda o tmux; substituível nos testes.
 	executar func(args ...string) (string, error)
-	// processoDoChat acha o pid de um processo do agente cujo chat é o dado; substituível nos testes.
-	processoDoChat func(chat string) int
+	// processosDoChat acha os pids dos processos cujo chat é o dado; substituível nos testes.
+	processosDoChat func(chat string) []int
 	// paiDe devolve o processo pai; substituível nos testes.
 	paiDe func(pid int) int
 }
@@ -141,7 +141,7 @@ func Novo(cfg Config) (*Lancador, error) {
 		}
 	}
 	maquina, _ := os.Hostname()
-	l := &Lancador{cfg: cfg, maquina: maquina, processoDoChat: processoDoChat, paiDe: paiDe}
+	l := &Lancador{cfg: cfg, maquina: maquina, processosDoChat: processosDoChat, paiDe: paiDe}
 	l.executar = func(args ...string) (string, error) {
 		saida, err := exec.Command(l.cfg.Tmux, args...).CombinedOutput()
 		return strings.TrimSpace(string(saida)), err
@@ -449,10 +449,12 @@ func (l *Lancador) encontrarPeloChat(sessao string) string {
 	return l.painelDoChat(*x.Chat)
 }
 
-// painelDoChat acha a sessão tmux do processo do agente com o chat dado.
+// painelDoChat acha a sessão tmux do processo do agente com o chat dado. Vários processos carregam o
+// chat (os servidores MCP do agente e tudo o que ele abriu); um programa que ele abriu e soltou, como
+// um navegador, fica órfão e não sobe até painel nenhum, então cada um é tentado.
 func (l *Lancador) painelDoChat(chat string) string {
-	pid := l.processoDoChat(chat)
-	if pid == 0 {
+	pids := l.processosDoChat(chat)
+	if len(pids) == 0 {
 		return ""
 	}
 	saida, err := l.executar("list-panes", "-a", "-F", "#{pane_pid} #{session_name}")
@@ -467,22 +469,25 @@ func (l *Lancador) painelDoChat(chat string) string {
 			paineis[p] = nome
 		}
 	}
-	for i := 0; i < 10 && pid > 1; i++ {
-		if nome, ok := paineis[pid]; ok {
-			return nome
+	for _, pid := range pids {
+		for i := 0; i < 10 && pid > 1; i++ {
+			if nome, ok := paineis[pid]; ok {
+				return nome
+			}
+			pid = l.paiDe(pid)
 		}
-		pid = l.paiDe(pid)
 	}
 	return ""
 }
 
-// processoDoChat procura em /proc um processo com CLAUDE_CODE_SESSION_ID igual ao chat.
-func processoDoChat(chat string) int {
+// processosDoChat procura em /proc os processos com CLAUDE_CODE_SESSION_ID igual ao chat.
+func processosDoChat(chat string) []int {
 	entradas, err := os.ReadDir("/proc")
 	if err != nil {
-		return 0
+		return nil
 	}
 	alvo := "CLAUDE_CODE_SESSION_ID=" + chat
+	var pids []int
 	for _, e := range entradas {
 		pid, err := strconv.Atoi(e.Name())
 		if err != nil {
@@ -494,11 +499,12 @@ func processoDoChat(chat string) int {
 		}
 		for _, v := range strings.Split(string(ambiente), "\x00") {
 			if v == alvo {
-				return pid
+				pids = append(pids, pid)
+				break
 			}
 		}
 	}
-	return 0
+	return pids
 }
 
 func paiDe(pid int) int {

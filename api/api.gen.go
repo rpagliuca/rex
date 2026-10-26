@@ -600,18 +600,18 @@ type PanoramaDeVoz struct {
 	Estado EstadoDaVoz `json:"estado"`
 
 	// NaoOuvidas Textos do agente depois do ponteiro do que o Rafael ouviu e da última fala dele na sessão
-	NaoOuvidas int      `json:"nao_ouvidas"`
-	Nome       *string  `json:"nome,omitempty"`
-	Sessao     string   `json:"sessao"`
-	Tarefas    []string `json:"tarefas"`
+	NaoOuvidas int     `json:"nao_ouvidas"`
+	Nome       *string `json:"nome,omitempty"`
 
-	// Tela Fim da tela, só em pedindo_permissao
-	Tela *string `json:"tela,omitempty"`
+	// PalavrasChave Palavras do nome da sessão, para achar a de que o Rafael fala
+	PalavrasChave *[]string `json:"palavras_chave,omitempty"`
+	Sessao        string    `json:"sessao"`
+	Tarefas       []string  `json:"tarefas"`
 
 	// Titulos Títulos das tarefas, na mesma ordem
 	Titulos *[]string `json:"titulos,omitempty"`
 
-	// Ultima Último texto do agente, encurtado
+	// Ultima Começo do último texto do agente, até uns 200 caracteres: o texto inteiro, a tela e as novidades vêm na situação da sessão
 	Ultima   *string    `json:"ultima,omitempty"`
 	UltimaEm *time.Time `json:"ultima_em,omitempty"`
 }
