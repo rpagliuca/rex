@@ -537,17 +537,27 @@ func TestServidorDoConectorSoVozEmProcesso(t *testing.T) {
 
 func TestSituacaoDoLembrete(t *testing.T) {
 	brt := time.FixedZone("BRT", -3*3600)
-	// Terça, 27/10/2026, 07:58: o lembrete da semana disparou na segunda às 8h e ainda vale.
-	agora := time.Date(2026, 10, 27, 7, 58, 0, 0, brt)
+	// Terça, 27/10/2026, 09:30: o da semana disparou na segunda às 8h e o do dia hoje às 8h; os dois ainda valem.
+	agora := time.Date(2026, 10, 27, 9, 30, 0, 0, brt)
 	segunda := time.Date(2026, 10, 26, 8, 0, 0, 0, brt)
 	domingo := time.Date(2026, 11, 2, 0, 0, 0, 0, brt)
 	ontem := time.Date(2026, 10, 27, 0, 0, 0, 0, brt)
+	hojeAs8 := time.Date(2026, 10, 27, 8, 0, 0, 0, brt)
+	amanha := time.Date(2026, 10, 28, 0, 0, 0, 0, brt)
+	meioDia := time.Date(2026, 10, 27, 12, 0, 0, 0, brt)
+	diaPrimeiro := time.Date(2026, 10, 1, 8, 0, 0, 0, brt)
+	novembro := time.Date(2026, 11, 1, 0, 0, 0, 0, brt)
+	segundaMeiaNoite := time.Date(2026, 10, 26, 0, 0, 0, 0, brt)
 	casos := []struct {
 		nome string
 		x    api.Lembrete
 		quer string
 	}{
 		{"semana em curso", api.Lembrete{Precisao: api.PrecisaoSemana, Quando: segunda, Fim: &domingo}, naJanela},
+		{"dia de hoje disparado às 8h", api.Lembrete{Precisao: api.PrecisaoDia, Quando: hojeAs8, Fim: &amanha}, naJanela},
+		{"manhã de hoje", api.Lembrete{Precisao: api.PrecisaoTurno, Quando: hojeAs8, Fim: &meioDia}, naJanela},
+		{"mês em curso", api.Lembrete{Precisao: api.PrecisaoMes, Quando: diaPrimeiro, Fim: &novembro}, naJanela},
+		{"semana passada", api.Lembrete{Precisao: api.PrecisaoSemana, Quando: segunda.AddDate(0, 0, -7), Fim: &segundaMeiaNoite}, vencido},
 		{"dia de ontem", api.Lembrete{Precisao: api.PrecisaoDia, Quando: segunda, Fim: &ontem}, vencido},
 		{"hora passada", api.Lembrete{Precisao: api.PrecisaoHora, Quando: agora.Add(-time.Minute)}, vencido},
 		{"hora futura", api.Lembrete{Precisao: api.PrecisaoHora, Quando: agora.Add(time.Minute)}, futuro},
