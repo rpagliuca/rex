@@ -16,6 +16,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -142,8 +143,8 @@ var descricoes = map[string]string{
 	"opcoes_do_lancador": "Modelos e esforços que o lançador de agentes aceita, e os padrões.",
 	"lancar_agente":      "Sobe um agente novo (outro chat, em tmux) para trabalhar numa tarefa: põe a tarefa em andamento e abre a sessão de trabalho dele. Para delegar; nunca para a tarefa deste chat. Recusa tarefa com sessão ativa. Para parar o agente depois, mude o status da tarefa (alterar_tarefa).",
 	"criar_lembrete":     "Agenda um lembrete para o Rafael, solto ou ligado a uma tarefa ou requisito. A precisão é obrigatória e vem do que o Rafael disse: hora só quando ele deu data e hora explícitas (\"às 14h\", \"9:30\"); turno para \"de manhã\", \"no almoço\", \"à tarde\", \"à noite\"; dia para \"amanhã\", \"sexta\", \"dia 30\" sem hora; semana para \"semana que vem\", \"na semana do dia 12\"; mes para \"em abril\", \"mês que vem\". Nunca invente uma hora: fora de hora, mande qualquer hora dentro da janela e o rex a troca pelo início dela. Só hora toca alarme; turno, dia, semana e mês são avisados em lote, sem som. Preencha curto com a palavra-chave do compromisso (até 10 caracteres, como ballet ou dentista): é o que cabe na ilha do iPhone.",
-	"proximos_lembretes": "Lembretes que pedem atenção: os disparados e os que vencem nas próximas horas (padrão 24). Só id, texto, hora, precisão e status, e a hora de agora (agora), para calcular o quando de um lembrete novo.",
-	"adiar_lembrete":     "Reagenda um lembrete para daqui a N minutos ou para uma hora (RFC 3339).",
+	"proximos_lembretes": "Lembretes que pedem atenção: os disparados e os que vencem nas próximas horas (padrão 24), com a hora de agora (agora), para calcular o quando de um lembrete novo. Cada um traz quando (início da janela), fim (fim da janela, fora da precisão hora) e situacao, e a lista vem nesta ordem: vencido (a janela já acabou: é o atrasado), na_janela (a janela está aberta: vale agora, não está atrasado) e futuro. Um lembrete de semana ou mês dispara na segunda ou no dia 1 às 8h e vale a semana ou o mês inteiro: com quando no passado e situacao na_janela, ele não é \"de ontem\".",
+	"adiar_lembrete":     "Reagenda um lembrete para daqui a N minutos ou para uma hora (RFC 3339). Para pedidos em lote (\"os de ontem, joga para amanhã\"), adie só os de situacao vencido em proximos_lembretes. Lembrete de semana ou mês com a janela ainda aberta é recusado, porque ainda vale: só com mesmo_na_janela, quando o Rafael pediu aquele lembrete pelo nome.",
 	"alterar_lembrete":   "Corrige texto, palavra-chave (curto), hora, precisão, organização ou ligações de um lembrete, mantendo o id: nunca cancele e recrie para isso. Só os campos informados mudam; tarefa ou requisito vazio remove a ligação. Confirmado ou cancelado não muda.",
 	"confirmar_lembrete": "Marca o lembrete como visto: ele para de pedir atenção. Só quando o Rafael disser que viu ou fez.",
 	"cancelar_lembrete":  "Cancela um lembrete que não vale mais. Só quando o Rafael disser que não vale mais; para mudar texto, hora ou ligações, alterar_lembrete.",
@@ -181,6 +182,7 @@ func (f *Ferramentas) ServidorDoConector() *mcp.Server {
 			"Lembretes você mesmo gerencia (proximos_lembretes, criar_lembrete, alterar_lembrete, adiar_lembrete, confirmar_lembrete, cancelar_lembrete): " +
 			"\"o que tenho amanhã?\" é proximos_lembretes com horas 48, \"esta semana\" 168; a precisão sai das palavras dele, nunca invente uma hora; " +
 			"para criar, calcule o quando a partir do agora de proximos_lembretes; depois de criar ou alterar, diga o que ficou gravado (o rex põe a hora no início da janela). " +
+			"Atrasado é só o de situacao vencido; os de semana e mês disparam na segunda ou no dia 1 e ficam na_janela até o fim dela, então \"os de ontem\" nunca os inclui. " +
 			"Sessão de trabalho nova: criar_tarefa (título, organização Cartório, Yes ou Pessoal, descrição com o pedido nas palavras dele, status a_fazer) " +
 			"e lancar_agente nela, com o nome curto do assunto; tarefa da Yes leva Work=<código> na primeira linha da descrição, e sem saber o código, " +
 			"mande o pedido ao Agente Global. Consultas de tarefa: consultar_tarefas e obter_tarefa. Outro pedido sem sessão própria: voz_enviar ao Agente Global. " +
@@ -861,6 +863,8 @@ type ResumoDeLembrete struct {
 	Curto    string `json:"curto,omitempty"`
 	Quando   string `json:"quando"`
 	Precisao string `json:"precisao"`
+	Fim      string `json:"fim,omitempty"`
+	Situacao string `json:"situacao" jsonschema:"vencido (a janela acabou e ainda pede atenção), na_janela (a janela está aberta) ou futuro"`
 	Status   string `json:"status"`
 }
 
@@ -878,6 +882,8 @@ type AdiamentoDeLembrete struct {
 	Id      string `json:"id" jsonschema:"lembrete, como L-0001"`
 	Minutos int    `json:"minutos,omitempty" jsonschema:"daqui a quantos minutos"`
 	Ate     string `json:"ate,omitempty" jsonschema:"ou a nova hora, em RFC 3339 com fuso"`
+	// MesmoNaJanela libera o adiamento de um lembrete de semana ou mês que ainda vale.
+	MesmoNaJanela bool `json:"mesmo_na_janela,omitempty" jsonschema:"true só quando o Rafael pediu para adiar este lembrete de semana ou mês pelo nome, com a janela ainda aberta"`
 }
 
 type AlteracaoDeLembrete struct {
@@ -895,10 +901,33 @@ type Espera struct {
 	Mensagem string `json:"mensagem" jsonschema:"o que você precisa do Rafael, em uma linha"`
 }
 
+// Situações de um lembrete em relação à própria janela, na ordem em que proximos_lembretes as lista.
+const (
+	vencido  = "vencido"
+	naJanela = "na_janela"
+	futuro   = "futuro"
+)
+
+// situacao compara a janela do lembrete com agora. Na precisão hora a janela é o instante, então
+// o que já passou está vencido; nas outras, quando é o início e fim o fim da janela.
+func situacao(x api.Lembrete, agora time.Time) string {
+	switch {
+	case x.Quando.After(agora):
+		return futuro
+	case x.Fim != nil && x.Fim.After(agora):
+		return naJanela
+	}
+	return vencido
+}
+
 func resumirLembrete(x api.Lembrete) ResumoDeLembrete {
-	r := ResumoDeLembrete{Id: x.Id, Texto: x.Texto, Quando: x.Quando.Format(time.RFC3339), Precisao: string(x.Precisao), Status: string(x.Status)}
+	r := ResumoDeLembrete{Id: x.Id, Texto: x.Texto, Quando: x.Quando.Format(time.RFC3339), Precisao: string(x.Precisao),
+		Situacao: situacao(x, time.Now()), Status: string(x.Status)}
 	if x.Curto != nil {
 		r.Curto = *x.Curto
+	}
+	if x.Fim != nil {
+		r.Fim = x.Fim.In(x.Quando.Location()).Format(time.RFC3339)
 	}
 	return r
 }
@@ -945,6 +974,9 @@ func (f *Ferramentas) proximosLembretes(ctx context.Context, _ *mcp.CallToolRequ
 	for _, x := range p.Lembretes {
 		out.Lembretes = append(out.Lembretes, resumirLembrete(x))
 	}
+	// Separados por situação para quem lê a lista não tomar o lembrete da semana por atrasado.
+	ordem := map[string]int{vencido: 0, naJanela: 1, futuro: 2}
+	sort.SliceStable(out.Lembretes, func(i, j int) bool { return ordem[out.Lembretes[i].Situacao] < ordem[out.Lembretes[j].Situacao] })
 	return nil, out, nil
 }
 
@@ -959,6 +991,17 @@ func (f *Ferramentas) adiarLembrete(ctx context.Context, _ *mcp.CallToolRequest,
 			return nil, ResumoDeLembrete{}, err
 		}
 		a.Ate = &ate
+	}
+	if !in.MesmoNaJanela {
+		var atual api.Lembrete
+		resp, err := f.cliente.ObterLembrete(ctx, in.Id)
+		if err := decodificar(resp, err, &atual); err != nil {
+			return nil, ResumoDeLembrete{}, err
+		}
+		if (atual.Precisao == api.PrecisaoSemana || atual.Precisao == api.PrecisaoMes) && situacao(atual, time.Now()) == naJanela {
+			return nil, ResumoDeLembrete{}, fmt.Errorf("%s é de %s e ainda vale até %s: não está atrasado; não adiei. "+
+				"Só adie com mesmo_na_janela se o Rafael pediu este lembrete pelo nome", atual.Id, atual.Precisao, atual.Fim.In(atual.Quando.Location()).Format(time.RFC3339))
+		}
 	}
 	var x api.Lembrete
 	resp, err := f.cliente.AdiarLembrete(ctx, in.Id, a, f.autorizar)
