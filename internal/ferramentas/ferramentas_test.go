@@ -414,6 +414,27 @@ func TestLembretesEEsperaPeloMCP(t *testing.T) {
 		t.Fatalf("lembrete de turno: %+v (esperava %s)", dia, inicio)
 	}
 
+	// Semana em curso: depois da segunda às 8h a janela está aberta, e adiar sem mesmo_na_janela é recusado.
+	var semana ResumoDeLembrete
+	c.chamar("criar_lembrete", map[string]any{"texto": "pagar a Vivo", "quando": time.Now().Format(time.RFC3339), "precisao": "semana", "organizacao": "Exemplo"}, &semana)
+	if semana.Fim == "" {
+		t.Fatalf("semana sem fim da janela: %+v", semana)
+	}
+	if semana.Situacao == naJanela {
+		amanhaAs8 := time.Now().Add(24 * time.Hour).Format(time.RFC3339)
+		if msg := c.chamar("adiar_lembrete", map[string]any{"id": semana.Id, "ate": amanhaAs8}, nil); !strings.Contains(msg, "ainda vale") {
+			t.Fatalf("adiar semana na janela deveria recusar: %q", msg)
+		}
+		c.chamar("proximos_lembretes", map[string]any{"horas": 48}, &proximos)
+		if n := len(proximos.Lembretes); n == 0 || proximos.Lembretes[0].Id != semana.Id || proximos.Lembretes[n-1].Situacao != futuro {
+			t.Fatalf("ordem por situação: %+v", proximos.Lembretes)
+		}
+		c.chamar("adiar_lembrete", map[string]any{"id": semana.Id, "ate": amanhaAs8, "mesmo_na_janela": true}, &semana)
+		if semana.Status != "adiado" {
+			t.Fatalf("adiar semana com mesmo_na_janela: %+v", semana)
+		}
+	}
+
 	var eventos Eventos
 	c.chamar("listar_eventos", map[string]any{"entidade": "L-0001"}, &eventos)
 	for _, e := range eventos.Eventos {
@@ -511,5 +532,30 @@ func TestServidorDoConectorSoVozEmProcesso(t *testing.T) {
 	c.chamar("criar_tarefa", map[string]any{"titulo": "Rever o backup", "organizacao": "Pessoal"}, &tarefa)
 	if tarefa.Id == "" {
 		t.Fatalf("tarefa pelo conector: %+v", tarefa)
+	}
+}
+
+func TestSituacaoDoLembrete(t *testing.T) {
+	brt := time.FixedZone("BRT", -3*3600)
+	// Terça, 27/10/2026, 07:58: o lembrete da semana disparou na segunda às 8h e ainda vale.
+	agora := time.Date(2026, 10, 27, 7, 58, 0, 0, brt)
+	segunda := time.Date(2026, 10, 26, 8, 0, 0, 0, brt)
+	domingo := time.Date(2026, 11, 2, 0, 0, 0, 0, brt)
+	ontem := time.Date(2026, 10, 27, 0, 0, 0, 0, brt)
+	casos := []struct {
+		nome string
+		x    api.Lembrete
+		quer string
+	}{
+		{"semana em curso", api.Lembrete{Precisao: api.PrecisaoSemana, Quando: segunda, Fim: &domingo}, naJanela},
+		{"dia de ontem", api.Lembrete{Precisao: api.PrecisaoDia, Quando: segunda, Fim: &ontem}, vencido},
+		{"hora passada", api.Lembrete{Precisao: api.PrecisaoHora, Quando: agora.Add(-time.Minute)}, vencido},
+		{"hora futura", api.Lembrete{Precisao: api.PrecisaoHora, Quando: agora.Add(time.Minute)}, futuro},
+		{"semana que vem", api.Lembrete{Precisao: api.PrecisaoSemana, Quando: domingo.Add(8 * time.Hour)}, futuro},
+	}
+	for _, c := range casos {
+		if got := situacao(c.x, agora); got != c.quer {
+			t.Errorf("%s: %s, esperava %s", c.nome, got, c.quer)
+		}
 	}
 }
