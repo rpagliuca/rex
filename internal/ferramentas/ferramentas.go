@@ -143,7 +143,7 @@ var descricoes = map[string]string{
 	"opcoes_do_lancador": "Modelos e esforços que o lançador de agentes aceita, e os padrões.",
 	"lancar_agente":      "Sobe um agente novo (outro chat, em tmux) para trabalhar numa tarefa: põe a tarefa em andamento e abre a sessão de trabalho dele. Para delegar; nunca para a tarefa deste chat. Recusa tarefa com sessão ativa. Para parar o agente depois, mude o status da tarefa (alterar_tarefa).",
 	"criar_lembrete":     "Agenda um lembrete para o Rafael, solto ou ligado a uma tarefa ou requisito. A precisão é obrigatória e vem do que o Rafael disse: hora só quando ele deu data e hora explícitas (\"às 14h\", \"9:30\"); turno para \"de manhã\", \"no almoço\", \"à tarde\", \"à noite\"; dia para \"amanhã\", \"sexta\", \"dia 30\" sem hora; semana para \"semana que vem\", \"na semana do dia 12\"; mes para \"em abril\", \"mês que vem\". Nunca invente uma hora: fora de hora, mande qualquer hora dentro da janela e o rex a troca pelo início dela. Só hora toca alarme; turno, dia, semana e mês são avisados em lote, sem som. Preencha curto com a palavra-chave do compromisso (até 10 caracteres, como ballet ou dentista): é o que cabe na ilha do iPhone.",
-	"proximos_lembretes": "Lembretes que pedem atenção: os disparados e os que vencem nas próximas horas (padrão 24), com a hora de agora (agora), para calcular o quando de um lembrete novo. Cada um traz quando (início da janela), fim (fim da janela, fora da precisão hora) e situacao, e a lista vem nesta ordem: vencido (a janela já acabou: é o atrasado), na_janela (a janela está aberta: vale agora, não está atrasado) e futuro. Um lembrete de semana ou mês dispara na segunda ou no dia 1 às 8h e vale a semana ou o mês inteiro: com quando no passado e situacao na_janela, ele não é \"de ontem\".",
+	"proximos_lembretes": "Lembretes que pedem atenção: os disparados e os que vencem nas próximas horas (padrão 24), com a hora de agora (agora), para calcular o quando de um lembrete novo. Cada um traz quando (início da janela), fim (fim da janela, fora da precisão hora) e situacao, e a lista vem nesta ordem: vencido (a janela já acabou: é o atrasado), na_janela (a janela está aberta: é para fazer no período corrente, não está atrasado) e futuro. Disparado não é vencido: o status disparado só diz que o aviso saiu. Turno, dia, semana e mês disparam no início da janela (o dia às 8h, a semana na segunda às 8h, o mês no dia 1 às 8h) e valem até o fim dela: um lembrete de dia disparado hoje às 8h é para hoje, e um de semana disparado na segunda é para esta semana; só fica vencido depois que o dia, a semana ou o mês acabam sem confirmação. Na precisão hora não há janela: vencido assim que a hora passa.",
 	"adiar_lembrete":     "Reagenda um lembrete para daqui a N minutos ou para uma hora (RFC 3339). Para pedidos em lote (\"os de ontem, joga para amanhã\"), adie só os de situacao vencido em proximos_lembretes. Lembrete de semana ou mês com a janela ainda aberta é recusado, porque ainda vale: só com mesmo_na_janela, quando o Rafael pediu aquele lembrete pelo nome.",
 	"alterar_lembrete":   "Corrige texto, palavra-chave (curto), hora, precisão, organização ou ligações de um lembrete, mantendo o id: nunca cancele e recrie para isso. Só os campos informados mudam; tarefa ou requisito vazio remove a ligação. Confirmado ou cancelado não muda.",
 	"confirmar_lembrete": "Marca o lembrete como visto: ele para de pedir atenção. Só quando o Rafael disser que viu ou fez.",
@@ -182,7 +182,7 @@ func (f *Ferramentas) ServidorDoConector() *mcp.Server {
 			"Lembretes você mesmo gerencia (proximos_lembretes, criar_lembrete, alterar_lembrete, adiar_lembrete, confirmar_lembrete, cancelar_lembrete): " +
 			"\"o que tenho amanhã?\" é proximos_lembretes com horas 48, \"esta semana\" 168; a precisão sai das palavras dele, nunca invente uma hora; " +
 			"para criar, calcule o quando a partir do agora de proximos_lembretes; depois de criar ou alterar, diga o que ficou gravado (o rex põe a hora no início da janela). " +
-			"Atrasado é só o de situacao vencido; os de semana e mês disparam na segunda ou no dia 1 e ficam na_janela até o fim dela, então \"os de ontem\" nunca os inclui. " +
+			"Disparado não é vencido: atrasado é só o de situacao vencido; o de dia disparado hoje às 8h é para hoje e os de semana e mês disparam na segunda ou no dia 1 e valem até o fim da semana ou do mês (na_janela), então \"os atrasados\" ou \"os de ontem\" nunca os incluem. " +
 			"Sessão de trabalho nova: criar_tarefa (título, organização Cartório, Yes ou Pessoal, descrição com o pedido nas palavras dele, status a_fazer) " +
 			"e lancar_agente nela, com o nome curto do assunto; tarefa da Yes leva Work=<código> na primeira linha da descrição, e sem saber o código, " +
 			"mande o pedido ao Agente Global. Consultas de tarefa: consultar_tarefas e obter_tarefa. Outro pedido sem sessão própria: voz_enviar ao Agente Global. " +
@@ -864,8 +864,8 @@ type ResumoDeLembrete struct {
 	Quando   string `json:"quando"`
 	Precisao string `json:"precisao"`
 	Fim      string `json:"fim,omitempty"`
-	Situacao string `json:"situacao" jsonschema:"vencido (a janela acabou e ainda pede atenção), na_janela (a janela está aberta) ou futuro"`
-	Status   string `json:"status"`
+	Situacao string `json:"situacao" jsonschema:"vencido (a janela acabou sem confirmação: atrasado; na precisão hora, a hora passou), na_janela (a janela está aberta: para fazer no período corrente, não atrasado, mesmo disparado) ou futuro"`
+	Status   string `json:"status" jsonschema:"agendado, adiado, disparado (o aviso já saiu; não quer dizer atrasado: veja situacao), confirmado ou cancelado"`
 }
 
 type Lembretes struct {
