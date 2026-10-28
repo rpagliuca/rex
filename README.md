@@ -38,7 +38,7 @@ for skill in skills/*/; do ln -sfn "$PWD/$skill" ~/.claude/skills/"$(basename "$
 Ferramentas: `obter_tarefa`, `consultar_tarefas`, `criar_tarefa`, `alterar_tarefa`,
 `historico_da_tarefa`, `iniciar_sessao`, `sessao_atual`, `vincular_tarefa`, `atualizar_journal`, `renomear_sessao`,
 `encerrar_sessao`, `repassar_sessao`, `listar_eventos`, `buscar_requisitos`, `arvore_de_requisitos`, `obter_requisito`, `criar_requisito`,
-`alterar_requisito`, `derivar_requisito`, `marcar_obsoleto`, `vincular_requisito`, `registrar_execucao`, `listar_componentes`, `criar_componente`, `vincular_componente`, `opcoes_do_lancador`, `lancar_agente`, `recursos_da_maquina`, `agentes_ativos`, `listar_templates`, `instanciar_template`, `listar_origens`, `criar_origem`, `criar_lembrete`, `proximos_lembretes`, `adiar_lembrete`, `alterar_lembrete`, `confirmar_lembrete`, `cancelar_lembrete`, `aguardar_resposta`, `retomar_trabalho`,
+`alterar_requisito`, `derivar_requisito`, `marcar_obsoleto`, `vincular_requisito`, `registrar_execucao`, `listar_componentes`, `criar_componente`, `vincular_componente`, `opcoes_do_lancador`, `lancar_agente`, `recursos_da_maquina`, `descer_item`, `agentes_ativos`, `listar_templates`, `instanciar_template`, `listar_origens`, `criar_origem`, `criar_lembrete`, `proximos_lembretes`, `adiar_lembrete`, `alterar_lembrete`, `confirmar_lembrete`, `cancelar_lembrete`, `aguardar_resposta`, `retomar_trabalho`,
 `voz_panorama`, `voz_situacao`, `voz_enviar`, `voz_tecla`.
 
 ## Lançador de agentes (opcional)
@@ -74,15 +74,27 @@ só ao agente daquela tarefa: por exemplo, um servidor MCP que nenhum outro agen
 dentro de outro agente, o novo herdaria o esforço e o chat dele.
 
 Antes de subir um agente, o lançador mede a máquina (`GET /recursos`, ferramenta
-`recursos_da_maquina`): RAM disponível, sessões do Claude Code abertas, agente navegador com o
-Chromium, Steam, containers do docker por projeto e os 15 maiores processos por RAM e por CPU (só
+`recursos_da_maquina`): RAM disponível, sessões do Claude Code abertas, os itens configurados (abertos
+ou não, com o que descer cada um libera), containers do docker por projeto e os 15 maiores processos por RAM e por CPU (só
 nome e pid, nunca a linha de comando). Com menos RAM disponível que o mínimo, o lançamento é recusado
 com 409 e a medição; o pedido com `forcar` sobe assim mesmo, depois de o Rafael confirmar. Sem swap,
-quem estoura a memória não fica lento: o kernel mata um processo. A chave `recursos` ajusta o mínimo e
-o nome da sessão do agente navegador (padrões abaixo).
+quem estoura a memória não fica lento: o kernel mata um processo.
+
+Para liberar memória, `descer_item` (`POST /recursos/descida`) fecha um item: pausa a tarefa dele (o
+agente encerra a sessão e leva os filhos, como o navegador que o MCP abriu) ou roda o comando dele.
+Subir não tem ferramenta: é o `lancar_agente` ou o jeito de sempre de cada coisa. Na chave `recursos`,
+o mínimo (padrão 2500 MB) e os itens; cada um se reconhece por `processos` (nome curto exato, ou
+prefixo com `*`, com os filhos), `projeto_docker` ou `sessao` (o nome dela):
 
 ```json
-"recursos": {"memoria_minima_mb": 2500, "sessao_navegador": "agente-navegador"}
+"recursos": {
+  "memoria_minima_mb": 2500,
+  "itens": [
+    {"nome": "steam", "descricao": "Steam e jogos", "processos": ["steam*"], "comando": ["/caminho/fechar-steam.sh"]},
+    {"nome": "ambiente", "descricao": "ambiente docker", "projeto_docker": "ambiente", "comando": ["/caminho/descer-ambiente.sh"]},
+    {"nome": "agente-navegador", "descricao": "sessão com o navegador", "sessao": "agente-navegador", "tarefa": "T-0001"}
+  ]
+}
 ```
 
 No frontend, pôr uma tarefa em andamento abre a escolha de modelo, esforço e uma instrução adicional

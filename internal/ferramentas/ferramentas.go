@@ -114,6 +114,7 @@ func (f *Ferramentas) Servidor() *mcp.Server {
 	mcp.AddTool(s, &mcp.Tool{Name: "opcoes_do_lancador", Description: descricoes["opcoes_do_lancador"]}, f.opcoesDoLancador)
 	mcp.AddTool(s, &mcp.Tool{Name: "lancar_agente", Description: descricoes["lancar_agente"]}, f.lancarAgente)
 	mcp.AddTool(s, &mcp.Tool{Name: "recursos_da_maquina", Description: descricoes["recursos_da_maquina"]}, f.recursosDaMaquina)
+	mcp.AddTool(s, &mcp.Tool{Name: "descer_item", Description: descricoes["descer_item"]}, f.descerItem)
 	mcp.AddTool(s, &mcp.Tool{Name: "agentes_ativos", Description: "Sessões de trabalho ativas agora: id, agente, tarefas e início. Para saber quem está trabalhando em quê."}, f.agentesAtivos)
 	mcp.AddTool(s, &mcp.Tool{Name: "listar_templates", Description: "Tarefas pré-moldadas (templates): id, título, organização, periodicidade, se está devida e a instância aberta."}, f.listarTemplates)
 	mcp.AddTool(s, &mcp.Tool{Name: "instanciar_template", Description: "Cria uma tarefa (a fazer) a partir de uma pré-moldada, com o contexto desta vez no topo da descrição e os requisitos dela. Não sobe agente: para isso, lancar_agente na tarefa criada."}, f.instanciarTemplate)
@@ -143,7 +144,8 @@ var descricoes = map[string]string{
 	"criar_tarefa":        "Cria uma tarefa, já ligada aos requisitos e componentes informados.",
 	"opcoes_do_lancador":  "Modelos e esforços que o lançador de agentes aceita, e os padrões.",
 	"lancar_agente":       "Sobe um agente novo (outro chat, em tmux) para trabalhar numa tarefa: põe a tarefa em andamento e abre a sessão de trabalho dele. Para delegar; nunca para a tarefa deste chat. Recusa tarefa com sessão ativa. Para parar o agente depois, mude o status da tarefa (alterar_tarefa). Antes de subir, mede a máquina: com menos RAM disponível que o mínimo, recusa com a medição (o que ocupa e as sessões que esperam o Rafael há mais tempo); diga isso a ele e só repita com forcar se ele mandar abrir assim mesmo.",
-	"recursos_da_maquina": "Memória e CPU da máquina dos agentes, medidas agora (~2 s): RAM disponível e o mínimo para lançar agente, sessões do Claude Code abertas (com a RAM de cada uma e o que esperam do Rafael), agente navegador com o Chromium, Steam, containers do docker por projeto e os 15 maiores processos por RAM e por CPU (nome e pid). resumo traz o essencial em poucas linhas. Para \"cabe mais um agente?\", \"o que está pesando?\" ou um processo preso consumindo CPU.",
+	"descer_item":         "Desce um item de recursos_da_maquina (como steam, platform-simulation-environment ou agente-navegador) para liberar memória: pausa a tarefa dele, cujo agente encerra e leva os filhos junto, ou roda o comando de fechar. Só com o sim do Rafael para aquele item, e nunca para fechar algo que outro agente esteja usando: a recusa (lock com dono, por exemplo) é a resposta, diga-a a ele. Subir não tem ferramenta: é lancar_agente ou o jeito de sempre de cada coisa.",
+	"recursos_da_maquina": "Memória e CPU da máquina dos agentes, medidas agora (~2 s): RAM disponível e o mínimo para lançar agente, sessões do Claude Code abertas (com a RAM de cada uma e o que esperam do Rafael), os itens que se pode descer (descer_item) com o que cada um libera, containers do docker por projeto e os 15 maiores processos por RAM e por CPU (nome e pid). resumo traz o essencial em poucas linhas. Para \"cabe mais um agente?\", \"o que está pesando?\" ou um processo preso consumindo CPU.",
 	"criar_lembrete":      "Agenda um lembrete para o Rafael, solto ou ligado a uma tarefa ou requisito. A precisão é obrigatória e vem do que o Rafael disse: hora só quando ele deu data e hora explícitas (\"às 14h\", \"9:30\"); turno para \"de manhã\", \"no almoço\", \"à tarde\", \"à noite\"; dia para \"amanhã\", \"sexta\", \"dia 30\" sem hora; semana para \"semana que vem\", \"na semana do dia 12\"; mes para \"em abril\", \"mês que vem\". Nunca invente uma hora: fora de hora, mande qualquer hora dentro da janela e o rex a troca pelo início dela. Só hora toca alarme; turno, dia, semana e mês são avisados em lote, sem som. Preencha curto com a palavra-chave do compromisso (até 10 caracteres, como ballet ou dentista): é o que cabe na ilha do iPhone.",
 	"proximos_lembretes":  "Lembretes que pedem atenção: os disparados e os que vencem nas próximas horas (padrão 24), com a hora de agora (agora), para calcular o quando de um lembrete novo. Cada um traz quando (início da janela), fim (fim da janela, fora da precisão hora) e situacao, e a lista vem nesta ordem: vencido (a janela já acabou: é o atrasado), na_janela (a janela está aberta: é para fazer no período corrente, não está atrasado) e futuro. Disparado não é vencido: o status disparado só diz que o aviso saiu. Turno, dia, semana e mês disparam no início da janela (o dia às 8h, a semana na segunda às 8h, o mês no dia 1 às 8h) e valem até o fim dela: um lembrete de dia disparado hoje às 8h é para hoje, e um de semana disparado na segunda é para esta semana; só fica vencido depois que o dia, a semana ou o mês acabam sem confirmação. Na precisão hora não há janela: vencido assim que a hora passa.",
 	"adiar_lembrete":      "Reagenda um lembrete para daqui a N minutos ou para uma hora (RFC 3339). Para pedidos em lote (\"os de ontem, joga para amanhã\"), adie só os de situacao vencido em proximos_lembretes. Lembrete de semana ou mês com a janela ainda aberta é recusado, porque ainda vale: só com mesmo_na_janela, quando o Rafael pediu aquele lembrete pelo nome.",
@@ -161,6 +163,7 @@ var anotacoesDoConector = map[string]*mcp.ToolAnnotations{
 	"opcoes_do_lancador":  {ReadOnlyHint: true, Title: "Modelos e esforços do lançador"},
 	"lancar_agente":       {DestructiveHint: ptr(false), Title: "Abrir sessão de trabalho"},
 	"recursos_da_maquina": {ReadOnlyHint: true, Title: "Memória e CPU da máquina"},
+	"descer_item":         {DestructiveHint: ptr(true), Title: "Fechar algo para liberar memória"},
 	"criar_lembrete":      {DestructiveHint: ptr(false), Title: "Criar lembrete"},
 	"proximos_lembretes":  {ReadOnlyHint: true, Title: "Próximos lembretes"},
 	"adiar_lembrete":      {DestructiveHint: ptr(false), Title: "Adiar lembrete"},
@@ -189,6 +192,7 @@ func (f *Ferramentas) ServidorDoConector() *mcp.Server {
 			"Sessão de trabalho nova: criar_tarefa (título, organização Cartório, Yes ou Pessoal, descrição com o pedido nas palavras dele, status a_fazer) " +
 			"e lancar_agente nela, com o nome curto do assunto; tarefa da Yes leva Work=<código> na primeira linha da descrição, e sem saber o código, " +
 			"mande o pedido ao Agente Global. Se lancar_agente recusar por pouca memória, diga quanto há e o que ocupa, em uma frase, e pergunte \"abro assim mesmo?\"; só com o sim dele, lancar_agente de novo com forcar. " +
+			"Para liberar memória, descer_item fecha um item aberto de recursos_da_maquina; pergunte antes (\"fecho a Steam?\") e só desça com o sim. " +
 			"Consultas de tarefa: consultar_tarefas e obter_tarefa. Outro pedido sem sessão própria: voz_enviar ao Agente Global. " +
 			"Na fala: curto, sem ids (chame cada sessão pelo nome curto lido como palavras), números por extenso. " +
 			"Antes de voz_tecla, leia a tela (voz_situacao), diga as opções e aperte só a que ele escolher. " +
@@ -228,6 +232,7 @@ func (f *Ferramentas) ServidorDoConector() *mcp.Server {
 	mcp.AddTool(s, doConector("opcoes_do_lancador"), f.opcoesDoLancador)
 	mcp.AddTool(s, doConector("lancar_agente"), f.lancarAgente)
 	mcp.AddTool(s, doConector("recursos_da_maquina"), f.recursosDaMaquina)
+	mcp.AddTool(s, doConector("descer_item"), f.descerItem)
 	return s
 }
 
@@ -805,6 +810,16 @@ func (f *Ferramentas) lancarAgente(ctx context.Context, _ *mcp.CallToolRequest, 
 		pedido.Forcar = &in.Forcar
 	}
 	resp, err := f.cliente.LancarAgente(ctx, in.Tarefa, pedido, f.autorizar)
+	return nil, out, decodificar(resp, err, &out)
+}
+
+type DescidaDeItem struct {
+	Item string `json:"item" jsonschema:"nome do item, como em recursos_da_maquina (itens)"`
+}
+
+func (f *Ferramentas) descerItem(ctx context.Context, _ *mcp.CallToolRequest, in DescidaDeItem) (*mcp.CallToolResult, api.Descida, error) {
+	var out api.Descida
+	resp, err := f.cliente.DescerItem(ctx, api.PedidoDeDescida{Item: in.Item}, f.autorizar)
 	return nil, out, decodificar(resp, err, &out)
 }
 

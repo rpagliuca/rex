@@ -262,6 +262,13 @@ type Derivacao struct {
 	Pontos *int `json:"pontos,omitempty"`
 }
 
+// Descida defines model for Descida.
+type Descida struct {
+	// Feito O que foi feito: a tarefa pausada ou a saída do comando
+	Feito string `json:"feito"`
+	Item  string `json:"item"`
+}
+
 // Encerramento defines model for Encerramento.
 type Encerramento struct {
 	Artefatos *[]string `json:"artefatos,omitempty"`
@@ -326,12 +333,6 @@ type Execucao struct {
 	ValidaAte *time.Time `json:"valida_ate,omitempty"`
 }
 
-// GrupoDeProcessos defines model for GrupoDeProcessos.
-type GrupoDeProcessos struct {
-	Aberto    bool `json:"aberto"`
-	MemoriaMb int  `json:"memoria_mb"`
-}
-
 // ImportacaoTarefa defines model for ImportacaoTarefa.
 type ImportacaoTarefa struct {
 	CriadaEm    time.Time `json:"criada_em"`
@@ -353,6 +354,18 @@ type Importancia struct {
 
 	// Pontos Ausente: a ligação ainda não foi triada (conta como 1)
 	Pontos *int `json:"pontos,omitempty"`
+}
+
+// ItemDaMaquina defines model for ItemDaMaquina.
+type ItemDaMaquina struct {
+	Aberto bool `json:"aberto"`
+
+	// Descricao O que é e o que descer faz
+	Descricao string `json:"descricao"`
+
+	// MemoriaMb O que descer libera, aproximadamente
+	MemoriaMb int    `json:"memoria_mb"`
+	Nome      string `json:"nome"`
 }
 
 // Lembrete defines model for Lembrete.
@@ -603,6 +616,12 @@ type PanoramaDeVoz struct {
 	UltimaEm *time.Time `json:"ultima_em,omitempty"`
 }
 
+// PedidoDeDescida defines model for PedidoDeDescida.
+type PedidoDeDescida struct {
+	// Item Nome do item, como em Recursos.itens
+	Item string `json:"item"`
+}
+
 // PedidoDeInstancia defines model for PedidoDeInstancia.
 type PedidoDeInstancia struct {
 	// Contexto Informações desta instância; vão para o topo da descrição da tarefa
@@ -698,15 +717,17 @@ type ProjetoDocker struct {
 
 // Recursos defines model for Recursos.
 type Recursos struct {
-	AbaixoDoMinimo  bool             `json:"abaixo_do_minimo"`
-	AgenteNavegador GrupoDeProcessos `json:"agente_navegador"`
-	Carga1min       float32          `json:"carga_1min"`
+	AbaixoDoMinimo bool    `json:"abaixo_do_minimo"`
+	Carga1min      float32 `json:"carga_1min"`
 
 	// Docker Containers agrupados pelo projeto do compose, do maior para o menor
 	Docker []ProjetoDocker `json:"docker"`
 
 	// ErroDocker Por que os containers não foram medidos
-	ErroDocker        *string             `json:"erro_docker,omitempty"`
+	ErroDocker *string `json:"erro_docker,omitempty"`
+
+	// Itens Coisas grandes que se pode descer (descer_item) para liberar memória, abertas ou não
+	Itens             []ItemDaMaquina     `json:"itens"`
 	MaioresPorCpu     []ProcessoNaMaquina `json:"maiores_por_cpu"`
 	MaioresPorMemoria []ProcessoNaMaquina `json:"maiores_por_memoria"`
 	MedidoEm          time.Time           `json:"medido_em"`
@@ -724,7 +745,6 @@ type Recursos struct {
 
 	// Sessoes Claude Code abertos, cada um com os servidores MCP filhos, da maior para a menor
 	Sessoes []SessaoNaMaquina `json:"sessoes"`
-	Steam   GrupoDeProcessos  `json:"steam"`
 }
 
 // Repasse defines model for Repasse.
@@ -1131,6 +1151,9 @@ type CriarOrigemJSONRequestBody = NovaOrigem
 // AlterarOrigemJSONRequestBody defines body for AlterarOrigem for application/json ContentType.
 type AlterarOrigemJSONRequestBody = AlteracaoOrigem
 
+// DescerItemJSONRequestBody defines body for DescerItem for application/json ContentType.
+type DescerItemJSONRequestBody = PedidoDeDescida
+
 // CriarRequisitoJSONRequestBody defines body for CriarRequisito for application/json ContentType.
 type CriarRequisitoJSONRequestBody = NovoRequisito
 
@@ -1371,6 +1394,11 @@ type ClientInterface interface {
 
 	// RecursosDaMaquina request
 	RecursosDaMaquina(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DescerItemWithBody request with any body
+	DescerItemWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	DescerItem(ctx context.Context, body DescerItemJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListarRequisitos request
 	ListarRequisitos(ctx context.Context, params *ListarRequisitosParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1950,6 +1978,30 @@ func (c *Client) AlterarOrigem(ctx context.Context, id Id, body AlterarOrigemJSO
 
 func (c *Client) RecursosDaMaquina(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewRecursosDaMaquinaRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DescerItemWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDescerItemRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DescerItem(ctx context.Context, body DescerItemJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDescerItemRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -4022,6 +4074,46 @@ func NewRecursosDaMaquinaRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewDescerItemRequest calls the generic DescerItem builder with application/json body
+func NewDescerItemRequest(server string, body DescerItemJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewDescerItemRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewDescerItemRequestWithBody generates requests for DescerItem with any type of body
+func NewDescerItemRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/recursos/descida")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListarRequisitosRequest generates requests for ListarRequisitos
 func NewListarRequisitosRequest(server string, params *ListarRequisitosParams) (*http.Request, error) {
 	var err error
@@ -6053,6 +6145,11 @@ type ClientWithResponsesInterface interface {
 	// RecursosDaMaquinaWithResponse request
 	RecursosDaMaquinaWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*RecursosDaMaquinaResponse, error)
 
+	// DescerItemWithBodyWithResponse request with any body
+	DescerItemWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DescerItemResponse, error)
+
+	DescerItemWithResponse(ctx context.Context, body DescerItemJSONRequestBody, reqEditors ...RequestEditorFn) (*DescerItemResponse, error)
+
 	// ListarRequisitosWithResponse request
 	ListarRequisitosWithResponse(ctx context.Context, params *ListarRequisitosParams, reqEditors ...RequestEditorFn) (*ListarRequisitosResponse, error)
 
@@ -6811,6 +6908,30 @@ func (r RecursosDaMaquinaResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r RecursosDaMaquinaResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DescerItemResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Descida
+	JSON404      *Erro
+	JSON409      *Erro
+}
+
+// Status returns HTTPResponse.Status
+func (r DescerItemResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DescerItemResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -8137,6 +8258,23 @@ func (c *ClientWithResponses) RecursosDaMaquinaWithResponse(ctx context.Context,
 		return nil, err
 	}
 	return ParseRecursosDaMaquinaResponse(rsp)
+}
+
+// DescerItemWithBodyWithResponse request with arbitrary body returning *DescerItemResponse
+func (c *ClientWithResponses) DescerItemWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DescerItemResponse, error) {
+	rsp, err := c.DescerItemWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDescerItemResponse(rsp)
+}
+
+func (c *ClientWithResponses) DescerItemWithResponse(ctx context.Context, body DescerItemJSONRequestBody, reqEditors ...RequestEditorFn) (*DescerItemResponse, error) {
+	rsp, err := c.DescerItem(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDescerItemResponse(rsp)
 }
 
 // ListarRequisitosWithResponse request returning *ListarRequisitosResponse
@@ -9608,6 +9746,46 @@ func ParseRecursosDaMaquinaResponse(rsp *http.Response) (*RecursosDaMaquinaRespo
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDescerItemResponse parses an HTTP response from a DescerItemWithResponse call
+func ParseDescerItemResponse(rsp *http.Response) (*DescerItemResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DescerItemResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Descida
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Erro
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Erro
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	}
 
@@ -11363,6 +11541,9 @@ type ServerInterface interface {
 	// (GET /recursos)
 	RecursosDaMaquina(w http.ResponseWriter, r *http.Request)
 
+	// (POST /recursos/descida)
+	DescerItem(w http.ResponseWriter, r *http.Request)
+
 	// (GET /requisitos)
 	ListarRequisitos(w http.ResponseWriter, r *http.Request, params ListarRequisitosParams)
 
@@ -12166,6 +12347,20 @@ func (siw *ServerInterfaceWrapper) RecursosDaMaquina(w http.ResponseWriter, r *h
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RecursosDaMaquina(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DescerItem operation middleware
+func (siw *ServerInterfaceWrapper) DescerItem(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DescerItem(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -13457,6 +13652,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc("GET "+options.BaseURL+"/origens/{id}", wrapper.ObterOrigem)
 	m.HandleFunc("PATCH "+options.BaseURL+"/origens/{id}", wrapper.AlterarOrigem)
 	m.HandleFunc("GET "+options.BaseURL+"/recursos", wrapper.RecursosDaMaquina)
+	m.HandleFunc("POST "+options.BaseURL+"/recursos/descida", wrapper.DescerItem)
 	m.HandleFunc("GET "+options.BaseURL+"/requisitos", wrapper.ListarRequisitos)
 	m.HandleFunc("POST "+options.BaseURL+"/requisitos", wrapper.CriarRequisito)
 	m.HandleFunc("GET "+options.BaseURL+"/requisitos/{id}", wrapper.ObterRequisito)
