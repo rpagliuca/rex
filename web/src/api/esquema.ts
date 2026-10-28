@@ -51,6 +51,8 @@ export interface paths {
         put?: never;
         /** @description Põe a tarefa em andamento e sobe um agente para ela, com instrução adicional de reabertura,
          *     modelo e esforço opcionais. Exige o lançador de agentes configurado e a tarefa sem sessão ativa.
+         *     Antes, mede a máquina: com menos RAM disponível que o mínimo, recusa com 409 e a medição em
+         *     `recursos`, a menos que o pedido traga `forcar`.
          *      */
         post: operations["lancarAgente"];
         delete?: never;
@@ -526,6 +528,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/recursos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description RAM e CPU da máquina do lançador: disponível, sessões de trabalho abertas, Steam, Chromium do
+         *     agente navegador, containers do docker por projeto e os maiores processos por RAM e por CPU (só
+         *     nome e pid). Leva cerca de 2 s (amostra de CPU e docker stats). 404 se não há lançador.
+         *      */
+        get: operations["recursosDaMaquina"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tarefas/{id}/sessoes": {
         parameters: {
             query?: never;
@@ -946,6 +968,8 @@ export interface components {
     schemas: {
         Erro: {
             mensagem: string;
+            /** @description Na recusa de lançamento por falta de memória */
+            recursos?: components["schemas"]["Recursos"];
         };
         /** @enum {string} */
         StatusTarefa: "a_fazer" | "em_andamento" | "pausada" | "bloqueada" | "em_validacao" | "concluida";
@@ -1290,6 +1314,65 @@ export interface components {
             esforco?: string;
             /** @description Nome curto da sessão do agente (tmux e remote-control), dizendo o assunto do trabalho; padrão: derivado do título */
             nome?: string;
+            /** @description Sobe mesmo com menos RAM disponível que o mínimo; só depois de o Rafael confirmar */
+            forcar?: boolean;
+        };
+        Recursos: {
+            /** Format: date-time */
+            medido_em: string;
+            memoria_total_mb: number;
+            /** @description MemAvailable: o que ainda cabe, contando o cache que o kernel devolve */
+            memoria_disponivel_mb: number;
+            /** @description Abaixo disto, lançar agente exige forcar */
+            memoria_minima_mb: number;
+            abaixo_do_minimo: boolean;
+            nucleos: number;
+            carga_1min: number;
+            /** @description Claude Code abertos, cada um com os servidores MCP filhos, da maior para a menor */
+            sessoes: components["schemas"]["SessaoNaMaquina"][];
+            agente_navegador: components["schemas"]["GrupoDeProcessos"];
+            steam: components["schemas"]["GrupoDeProcessos"];
+            /** @description Containers agrupados pelo projeto do compose, do maior para o menor */
+            docker: components["schemas"]["ProjetoDocker"][];
+            /** @description Por que os containers não foram medidos */
+            erro_docker?: string;
+            maiores_por_memoria: components["schemas"]["ProcessoNaMaquina"][];
+            maiores_por_cpu: components["schemas"]["ProcessoNaMaquina"][];
+            /** @description Os números acima em poucas linhas, para dizer ao Rafael */
+            resumo: string;
+        };
+        SessaoNaMaquina: {
+            /** @description Nome curto (remote-control), ou o da sessão no rex */
+            nome: string;
+            /**
+             * @description Sessão de trabalho ativa deste chat, se houver
+             * @example S-0001
+             */
+            sessao?: string;
+            tarefas?: string[];
+            aguardando?: components["schemas"]["EsperaDeSessao"];
+            memoria_mb: number;
+        };
+        GrupoDeProcessos: {
+            aberto: boolean;
+            memoria_mb: number;
+        };
+        ProjetoDocker: {
+            /** @description com.docker.compose.project; vazio para container avulso */
+            projeto: string;
+            memoria_mb: number;
+            containers: {
+                nome: string;
+                memoria_mb: number;
+            }[];
+        };
+        ProcessoNaMaquina: {
+            pid: number;
+            /** @description Nome curto (comm), sem argumentos */
+            nome: string;
+            memoria_mb: number;
+            /** @description % de um núcleo na amostra de 1 s */
+            cpu: number;
         };
         OpcoesDeLancamento: {
             modelos: string[];
@@ -2662,6 +2745,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OpcoesDeLancamento"];
+                };
+            };
+            404: components["responses"]["Erro"];
+        };
+    };
+    recursosDaMaquina: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Medição */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Recursos"];
                 };
             };
             404: components["responses"]["Erro"];

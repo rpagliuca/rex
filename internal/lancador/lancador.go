@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/rpagliuca/rex/api"
+	"github.com/rpagliuca/rex/internal/recursos"
 	"github.com/rpagliuca/rex/internal/servidor"
 )
 
@@ -68,6 +69,8 @@ type Config struct {
 	// Projetos é onde o Claude Code guarda as conversas (<projetos>/<diretório>/<chat>.jsonl), que o
 	// rex voz lê. Padrão: ~/.claude/projects.
 	Projetos string `json:"projetos"`
+	// Recursos: memória mínima para lançar sem forcar e o nome da sessão do agente navegador.
+	Recursos recursos.Config `json:"recursos"`
 }
 
 // Modelo é uma opção de modelo do agente.
@@ -158,6 +161,7 @@ func (l *Lancador) Conectar(s *servidor.Servidor) {
 	s.AoRenomearSessao(l.Renomeou)
 	s.ComLancador(l)
 	s.ComVoz(l)
+	s.ComMedidor(recursos.Novo(l.cfg.Recursos))
 	l.sessoes = s
 }
 

@@ -273,7 +273,8 @@ type Encerramento struct {
 
 // Erro defines model for Erro.
 type Erro struct {
-	Mensagem string `json:"mensagem"`
+	Mensagem string    `json:"mensagem"`
+	Recursos *Recursos `json:"recursos,omitempty"`
 }
 
 // Espera defines model for Espera.
@@ -323,6 +324,12 @@ type Execucao struct {
 
 	// ValidaAte Sem prazo, não expira
 	ValidaAte *time.Time `json:"valida_ate,omitempty"`
+}
+
+// GrupoDeProcessos defines model for GrupoDeProcessos.
+type GrupoDeProcessos struct {
+	Aberto    bool `json:"aberto"`
+	MemoriaMb int  `json:"memoria_mb"`
 }
 
 // ImportacaoTarefa defines model for ImportacaoTarefa.
@@ -610,6 +617,9 @@ type PedidoDeLancamento struct {
 	// Esforco Um dos esforços do lançador; padrão: o configurado
 	Esforco *string `json:"esforco,omitempty"`
 
+	// Forcar Sobe mesmo com menos RAM disponível que o mínimo; só depois de o Rafael confirmar
+	Forcar *bool `json:"forcar,omitempty"`
+
 	// Instrucao Instrução adicional de reabertura, somada ao prompt padrão; o resto do contexto o agente lê da tarefa e das sessões anteriores
 	Instrucao *string `json:"instrucao,omitempty"`
 
@@ -662,6 +672,60 @@ type PrecisaoLembrete string
 
 // Prioridade Obsoleta, substituída pelos pontos de importância; guardada só como histórico.
 type Prioridade string
+
+// ProcessoNaMaquina defines model for ProcessoNaMaquina.
+type ProcessoNaMaquina struct {
+	// Cpu % de um núcleo na amostra de 1 s
+	Cpu       float32 `json:"cpu"`
+	MemoriaMb int     `json:"memoria_mb"`
+
+	// Nome Nome curto (comm), sem argumentos
+	Nome string `json:"nome"`
+	Pid  int    `json:"pid"`
+}
+
+// ProjetoDocker defines model for ProjetoDocker.
+type ProjetoDocker struct {
+	Containers []struct {
+		MemoriaMb int    `json:"memoria_mb"`
+		Nome      string `json:"nome"`
+	} `json:"containers"`
+	MemoriaMb int `json:"memoria_mb"`
+
+	// Projeto com.docker.compose.project; vazio para container avulso
+	Projeto string `json:"projeto"`
+}
+
+// Recursos defines model for Recursos.
+type Recursos struct {
+	AbaixoDoMinimo  bool             `json:"abaixo_do_minimo"`
+	AgenteNavegador GrupoDeProcessos `json:"agente_navegador"`
+	Carga1min       float32          `json:"carga_1min"`
+
+	// Docker Containers agrupados pelo projeto do compose, do maior para o menor
+	Docker []ProjetoDocker `json:"docker"`
+
+	// ErroDocker Por que os containers não foram medidos
+	ErroDocker        *string             `json:"erro_docker,omitempty"`
+	MaioresPorCpu     []ProcessoNaMaquina `json:"maiores_por_cpu"`
+	MaioresPorMemoria []ProcessoNaMaquina `json:"maiores_por_memoria"`
+	MedidoEm          time.Time           `json:"medido_em"`
+
+	// MemoriaDisponivelMb MemAvailable: o que ainda cabe, contando o cache que o kernel devolve
+	MemoriaDisponivelMb int `json:"memoria_disponivel_mb"`
+
+	// MemoriaMinimaMb Abaixo disto, lançar agente exige forcar
+	MemoriaMinimaMb int `json:"memoria_minima_mb"`
+	MemoriaTotalMb  int `json:"memoria_total_mb"`
+	Nucleos         int `json:"nucleos"`
+
+	// Resumo Os números acima em poucas linhas, para dizer ao Rafael
+	Resumo string `json:"resumo"`
+
+	// Sessoes Claude Code abertos, cada um com os servidores MCP filhos, da maior para a menor
+	Sessoes []SessaoNaMaquina `json:"sessoes"`
+	Steam   GrupoDeProcessos  `json:"steam"`
+}
 
 // Repasse defines model for Repasse.
 type Repasse struct {
@@ -811,6 +875,19 @@ type SessaoImportada struct {
 	Journal     *string   `json:"journal,omitempty"`
 	Resumo      string    `json:"resumo"`
 	Servidor    string    `json:"servidor"`
+}
+
+// SessaoNaMaquina defines model for SessaoNaMaquina.
+type SessaoNaMaquina struct {
+	Aguardando *EsperaDeSessao `json:"aguardando,omitempty"`
+	MemoriaMb  int             `json:"memoria_mb"`
+
+	// Nome Nome curto (remote-control), ou o da sessão no rex
+	Nome string `json:"nome"`
+
+	// Sessao Sessão de trabalho ativa deste chat, se houver
+	Sessao  *string   `json:"sessao,omitempty"`
+	Tarefas *[]string `json:"tarefas,omitempty"`
 }
 
 // StatusLembrete agendado (esperando a hora), disparado (a hora chegou; pede atenção até confirmar ou adiar),
@@ -1291,6 +1368,9 @@ type ClientInterface interface {
 	AlterarOrigemWithBody(ctx context.Context, id Id, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	AlterarOrigem(ctx context.Context, id Id, body AlterarOrigemJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RecursosDaMaquina request
+	RecursosDaMaquina(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListarRequisitos request
 	ListarRequisitos(ctx context.Context, params *ListarRequisitosParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1858,6 +1938,18 @@ func (c *Client) AlterarOrigemWithBody(ctx context.Context, id Id, contentType s
 
 func (c *Client) AlterarOrigem(ctx context.Context, id Id, body AlterarOrigemJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewAlterarOrigemRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RecursosDaMaquina(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRecursosDaMaquinaRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -3903,6 +3995,33 @@ func NewAlterarOrigemRequestWithBody(server string, id Id, contentType string, b
 	return req, nil
 }
 
+// NewRecursosDaMaquinaRequest generates requests for RecursosDaMaquina
+func NewRecursosDaMaquinaRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/recursos")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListarRequisitosRequest generates requests for ListarRequisitos
 func NewListarRequisitosRequest(server string, params *ListarRequisitosParams) (*http.Request, error) {
 	var err error
@@ -5931,6 +6050,9 @@ type ClientWithResponsesInterface interface {
 
 	AlterarOrigemWithResponse(ctx context.Context, id Id, body AlterarOrigemJSONRequestBody, reqEditors ...RequestEditorFn) (*AlterarOrigemResponse, error)
 
+	// RecursosDaMaquinaWithResponse request
+	RecursosDaMaquinaWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*RecursosDaMaquinaResponse, error)
+
 	// ListarRequisitosWithResponse request
 	ListarRequisitosWithResponse(ctx context.Context, params *ListarRequisitosParams, reqEditors ...RequestEditorFn) (*ListarRequisitosResponse, error)
 
@@ -6666,6 +6788,29 @@ func (r AlterarOrigemResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r AlterarOrigemResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type RecursosDaMaquinaResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Recursos
+	JSON404      *Erro
+}
+
+// Status returns HTTPResponse.Status
+func (r RecursosDaMaquinaResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RecursosDaMaquinaResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -7983,6 +8128,15 @@ func (c *ClientWithResponses) AlterarOrigemWithResponse(ctx context.Context, id 
 		return nil, err
 	}
 	return ParseAlterarOrigemResponse(rsp)
+}
+
+// RecursosDaMaquinaWithResponse request returning *RecursosDaMaquinaResponse
+func (c *ClientWithResponses) RecursosDaMaquinaWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*RecursosDaMaquinaResponse, error) {
+	rsp, err := c.RecursosDaMaquina(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRecursosDaMaquinaResponse(rsp)
 }
 
 // ListarRequisitosWithResponse request returning *ListarRequisitosResponse
@@ -9421,6 +9575,39 @@ func ParseAlterarOrigemResponse(rsp *http.Response) (*AlterarOrigemResponse, err
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRecursosDaMaquinaResponse parses an HTTP response from a RecursosDaMaquinaWithResponse call
+func ParseRecursosDaMaquinaResponse(rsp *http.Response) (*RecursosDaMaquinaResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RecursosDaMaquinaResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Recursos
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Erro
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	}
 
@@ -11173,6 +11360,9 @@ type ServerInterface interface {
 	// (PATCH /origens/{id})
 	AlterarOrigem(w http.ResponseWriter, r *http.Request, id Id)
 
+	// (GET /recursos)
+	RecursosDaMaquina(w http.ResponseWriter, r *http.Request)
+
 	// (GET /requisitos)
 	ListarRequisitos(w http.ResponseWriter, r *http.Request, params ListarRequisitosParams)
 
@@ -11962,6 +12152,20 @@ func (siw *ServerInterfaceWrapper) AlterarOrigem(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.AlterarOrigem(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RecursosDaMaquina operation middleware
+func (siw *ServerInterfaceWrapper) RecursosDaMaquina(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RecursosDaMaquina(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -13252,6 +13456,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc("POST "+options.BaseURL+"/origens", wrapper.CriarOrigem)
 	m.HandleFunc("GET "+options.BaseURL+"/origens/{id}", wrapper.ObterOrigem)
 	m.HandleFunc("PATCH "+options.BaseURL+"/origens/{id}", wrapper.AlterarOrigem)
+	m.HandleFunc("GET "+options.BaseURL+"/recursos", wrapper.RecursosDaMaquina)
 	m.HandleFunc("GET "+options.BaseURL+"/requisitos", wrapper.ListarRequisitos)
 	m.HandleFunc("POST "+options.BaseURL+"/requisitos", wrapper.CriarRequisito)
 	m.HandleFunc("GET "+options.BaseURL+"/requisitos/{id}", wrapper.ObterRequisito)

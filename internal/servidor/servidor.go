@@ -26,6 +26,7 @@ type Servidor struct {
 	agora func() time.Time
 
 	lancador         Lancador
+	medidor          Medidor
 	voz              Voz
 	integracao       Integracao
 	aoMudarStatus    []func(MudancaDeStatus)
@@ -118,6 +119,7 @@ func (s *Servidor) Handler() http.Handler {
 type erroHTTP struct {
 	status   int
 	mensagem string
+	recursos *api.Recursos // na recusa de lançamento por falta de memória
 }
 
 func (e *erroHTTP) Error() string { return e.mensagem }
@@ -135,7 +137,7 @@ func responder(w http.ResponseWriter, status int, corpo any) {
 func responderErro(w http.ResponseWriter, err error) {
 	var e *erroHTTP
 	if errors.As(err, &e) {
-		responder(w, e.status, api.Erro{Mensagem: e.mensagem})
+		responder(w, e.status, api.Erro{Mensagem: e.mensagem, Recursos: e.recursos})
 		return
 	}
 	responder(w, http.StatusInternalServerError, api.Erro{Mensagem: err.Error()})
