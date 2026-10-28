@@ -343,3 +343,22 @@ func TestRenomeiaOAgenteVivo(t *testing.T) {
 		}
 	}
 }
+
+func TestArgumentosSoDoAgenteDaTarefa(t *testing.T) {
+	l, err := Novo(Config{Diretorio: "/journals", Comando: []string{"agente"},
+		ArgumentosPorTarefa: map[string][]string{"T-0007": {"--mcp-config", "/navegador.json"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := &tmuxFalso{sessoes: map[string]string{}}
+	l.executar = f.executar
+
+	l.MudouStatus(servidor.MudancaDeStatus{Tarefa: api.Tarefa{Id: "T-0007", Titulo: "Navegador", Status: api.EmAndamento}, Anterior: api.AFazer, Autor: "local"})
+	if ultima := f.chamadas[len(f.chamadas)-1]; !strings.Contains(ultima, "agente --mcp-config /navegador.json ") {
+		t.Fatalf("comando sem os argumentos da tarefa: %s", ultima)
+	}
+	l.MudouStatus(servidor.MudancaDeStatus{Tarefa: api.Tarefa{Id: "T-0008", Titulo: "Outra", Status: api.EmAndamento}, Anterior: api.AFazer, Autor: "local"})
+	if ultima := f.chamadas[len(f.chamadas)-1]; strings.Contains(ultima, "--mcp-config") {
+		t.Fatalf("outra tarefa recebeu os argumentos: %s", ultima)
+	}
+}

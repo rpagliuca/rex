@@ -67,6 +67,9 @@ tmux e manda `/rename` ao Claude Code no painel dele.
 }
 ```
 
+`argumentos_por_tarefa` (`{"T-0001": ["--mcp-config", "/caminho/mcp.json"]}`) acrescenta argumentos
+só ao agente daquela tarefa: por exemplo, um servidor MCP que nenhum outro agente deve carregar.
+
 `remover_do_ambiente` evita que o agente herde variáveis do servidor tmux: se o tmux foi aberto de
 dentro de outro agente, o novo herdaria o esforço e o chat dele.
 
