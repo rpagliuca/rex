@@ -175,6 +175,24 @@ ligação de um lembrete, `alterar_lembrete` (mantém o id); `cancelar_lembrete`
 que o lembrete não vale mais. Nunca cancele e recrie para editar: o Rafael vê o antigo como
 cancelado, e cancelado não volta. O rex guarda a hora; avisar com antecedência é das integrações.
 
+Depois de `criar_lembrete` ou `alterar_lembrete`, confira no retorno (e, na dúvida, em
+`proximos_lembretes`) que texto, data, precisão e organização ficaram como ele pediu, e diga a ele o
+que ficou gravado. Se algo saiu diferente, corrija com `alterar_lembrete` e avise.
+
+## Regras desta instalação (laptop-2023)
+
+- **Achar a tarefa** sem id no pedido: a linha `**rex:** T-…` (ou a legada `**requerial:**`) do
+  `CLAUDE.md` da pasta, ou `~/.local/share/rex/tasks.tsv` (pasta legada → id).
+- **Organização** de toda tarefa: `Cartório`, `Yes` ou `Pessoal`. Tarefa da Yes leva o `Work=`
+  (código da skill `yes-objetos-de-trabalho-work`, ex. `ENG-06-ACE`) na primeira linha da descrição.
+- **Journal** em `~/dev/rex-journals/S-0001/`. Atualize-o a cada avanço significativo (decisão,
+  etapa concluída, descoberta, bloqueio, worktree criado), não só no fim: a sessão pode ser
+  interrompida a qualquer momento. Persistir é commit da pasta da sessão e **push direto na `main`
+  do `rex-journals`**, a única exceção à regra de nunca dar push na main (autorizada pelo Rafael em
+  2026-10-19: é log, não código).
+- **`~/tasks/` é legado, só leitura**: não crie nem mova pastas ali.
+- Nada disso tem relação com as tools internas `TaskCreate`/`TaskList`/`TaskUpdate` do Claude Code.
+
 ## O que não fazer
 
 - Não altere o resumo com `alterar_tarefa` para registrar progresso: o resumo é do encerramento.
