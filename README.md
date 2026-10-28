@@ -38,7 +38,7 @@ for skill in skills/*/; do ln -sfn "$PWD/$skill" ~/.claude/skills/"$(basename "$
 Ferramentas: `obter_tarefa`, `consultar_tarefas`, `criar_tarefa`, `alterar_tarefa`,
 `historico_da_tarefa`, `iniciar_sessao`, `sessao_atual`, `vincular_tarefa`, `atualizar_journal`, `renomear_sessao`,
 `encerrar_sessao`, `repassar_sessao`, `listar_eventos`, `buscar_requisitos`, `arvore_de_requisitos`, `obter_requisito`, `criar_requisito`,
-`alterar_requisito`, `derivar_requisito`, `marcar_obsoleto`, `vincular_requisito`, `registrar_execucao`, `listar_componentes`, `criar_componente`, `vincular_componente`, `opcoes_do_lancador`, `lancar_agente`, `agentes_ativos`, `listar_templates`, `instanciar_template`, `listar_origens`, `criar_origem`, `criar_lembrete`, `proximos_lembretes`, `adiar_lembrete`, `alterar_lembrete`, `confirmar_lembrete`, `cancelar_lembrete`, `aguardar_resposta`, `retomar_trabalho`,
+`alterar_requisito`, `derivar_requisito`, `marcar_obsoleto`, `vincular_requisito`, `registrar_execucao`, `listar_componentes`, `criar_componente`, `vincular_componente`, `opcoes_do_lancador`, `lancar_agente`, `recursos_da_maquina`, `agentes_ativos`, `listar_templates`, `instanciar_template`, `listar_origens`, `criar_origem`, `criar_lembrete`, `proximos_lembretes`, `adiar_lembrete`, `alterar_lembrete`, `confirmar_lembrete`, `cancelar_lembrete`, `aguardar_resposta`, `retomar_trabalho`,
 `voz_panorama`, `voz_situacao`, `voz_enviar`, `voz_tecla`.
 
 ## Lançador de agentes (opcional)
@@ -72,6 +72,18 @@ só ao agente daquela tarefa: por exemplo, um servidor MCP que nenhum outro agen
 
 `remover_do_ambiente` evita que o agente herde variáveis do servidor tmux: se o tmux foi aberto de
 dentro de outro agente, o novo herdaria o esforço e o chat dele.
+
+Antes de subir um agente, o lançador mede a máquina (`GET /recursos`, ferramenta
+`recursos_da_maquina`): RAM disponível, sessões do Claude Code abertas, agente navegador com o
+Chromium, Steam, containers do docker por projeto e os 15 maiores processos por RAM e por CPU (só
+nome e pid, nunca a linha de comando). Com menos RAM disponível que o mínimo, o lançamento é recusado
+com 409 e a medição; o pedido com `forcar` sobe assim mesmo, depois de o Rafael confirmar. Sem swap,
+quem estoura a memória não fica lento: o kernel mata um processo. A chave `recursos` ajusta o mínimo e
+o nome da sessão do agente navegador (padrões abaixo).
+
+```json
+"recursos": {"memoria_minima_mb": 2500, "sessao_navegador": "agente-navegador"}
+```
 
 No frontend, pôr uma tarefa em andamento abre a escolha de modelo, esforço e uma instrução adicional
 de reabertura (`POST /tarefas/{id}/lancamento`); o primeiro modelo é o padrão.
@@ -115,4 +127,4 @@ REX_API=http://127.0.0.1:8787 npm run dev   # desenvolvimento, com a API encamin
 ```
 
 O frontend fica em `/` e navega pelo hash da URL (`/#/tarefas/T-0001`); os caminhos `/tarefas`,
-`/sessoes`, `/eventos`, `/importacao`, `/lancador`, `/lembretes` e `/integracao` são da API.
+`/sessoes`, `/eventos`, `/importacao`, `/lancador`, `/recursos`, `/lembretes` e `/integracao` são da API.

@@ -32,6 +32,17 @@ export type PrecisaoLembrete = components["schemas"]["PrecisaoLembrete"]
 export type NovoLembrete = components["schemas"]["NovoLembrete"]
 export type AlteracaoLembrete = components["schemas"]["AlteracaoLembrete"]
 export type Adiamento = components["schemas"]["Adiamento"]
+export type Recursos = components["schemas"]["Recursos"]
+
+// ErroDaApi leva, além da mensagem, a medição da máquina quando o lançamento foi recusado por falta
+// de memória.
+export class ErroDaApi extends Error {
+  recursos?: Recursos
+  constructor(mensagem: string, recursos?: Recursos) {
+    super(mensagem)
+    this.recursos = recursos
+  }
+}
 
 // A API fica na mesma origem do frontend; em desenvolvimento, o Vite encaminha.
 async function obter<T>(caminho: string, metodo = "GET", corpo?: unknown): Promise<T> {
@@ -46,7 +57,7 @@ async function obter<T>(caminho: string, metodo = "GET", corpo?: unknown): Promi
   }
   if (!resposta.ok) {
     const corpo = await resposta.json().catch(() => null)
-    throw new Error(corpo?.mensagem ?? `a API respondeu ${resposta.status}`)
+    throw new ErroDaApi(corpo?.mensagem ?? `a API respondeu ${resposta.status}`, corpo?.recursos)
   }
   return resposta.json()
 }

@@ -243,6 +243,10 @@ func (s *Servidor) AlterarTarefa(w http.ResponseWriter, r *http.Request, id api.
 		responderErro(w, err)
 		return
 	}
+	if err := s.conferirMemoriaAoIniciar(r, n, alteracao); err != nil {
+		responderErro(w, err)
+		return
+	}
 	var alterada api.Tarefa
 	var anterior api.StatusTarefa
 	var quem string
@@ -306,6 +310,36 @@ func (s *Servidor) AlterarTarefa(w http.ResponseWriter, r *http.Request, id api.
 	}
 	s.avisarMudanca(MudancaDeStatus{Tarefa: alterada, Anterior: anterior, Autor: quem})
 	responder(w, http.StatusOK, alterada)
+}
+
+// conferirMemoriaAoIniciar: pôr em andamento uma tarefa sem agente, por quem não é sessão, faz o
+// lançador subir um; com pouca memória, a recusa manda pedir pelo lançamento, que aceita forcar.
+// A medição fica fora da transação, que não pode esperar os ~2 s dela.
+func (s *Servidor) conferirMemoriaAoIniciar(r *http.Request, n int64, alteracao api.AlteracaoTarefa) error {
+	if s.medidor == nil || alteracao.Status == nil || *alteracao.Status != api.EmAndamento {
+		return nil
+	}
+	var quem string
+	var atual api.Tarefa
+	err := s.emTransacao(func(tx *sql.Tx) (err error) {
+		if quem, err = autor(tx, r); err != nil {
+			return err
+		}
+		atual, err = carregarTarefa(tx, n)
+		return err
+	})
+	if err != nil || strings.HasPrefix(quem, "S-") || atual.Status == api.EmAndamento || atual.SessaoAtiva != nil {
+		return err
+	}
+	if err := s.conferirMemoria(r.Context(), false); err != nil {
+		var e *erroHTTP
+		if errors.As(err, &e) && e.recursos != nil {
+			e.mensagem = "pouca memória para subir o agente desta tarefa: confirme com o Rafael e use o lançamento " +
+				"(lancar_agente) com forcar, ou libere memória antes.\n" + e.recursos.Resumo
+		}
+		return err
+	}
+	return nil
 }
 
 func (s *Servidor) ListarSessoesDaTarefa(w http.ResponseWriter, r *http.Request, id api.Id) {

@@ -36,6 +36,10 @@ func (s *Servidor) LancarAgente(w http.ResponseWriter, r *http.Request, id api.I
 		responderErro(w, falha(http.StatusBadRequest, "%v", err))
 		return
 	}
+	if err := s.conferirMemoria(r.Context(), pedido.Forcar != nil && *pedido.Forcar); err != nil {
+		responderErro(w, err)
+		return
+	}
 	tarefa, err := s.pedirAgente(n, pedido, func(tx *sql.Tx) (string, error) { return autor(tx, r) })
 	if err != nil {
 		responderErro(w, err)

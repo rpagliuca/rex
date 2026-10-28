@@ -54,6 +54,11 @@ diga qual, para quê e com qual modelo e esforço.
 - **Subir**: `lancar_agente(tarefa, instrucao?, modelo?, esforco?, nome?)`. Sem modelo e esforço, vale o
   padrão do lançador (`opcoes_do_lancador`). A `instrucao` é só o que a tarefa não diz (ex.: o link do
   PR); o agente lê a tarefa e as sessões anteriores. Recusa tarefa com sessão ativa.
+- **Memória**: o `lancar_agente` mede a máquina antes de subir e recusa com pouca RAM disponível,
+  devolvendo o que ocupa e as sessões que esperam o Rafael há mais tempo. Passe isso a ele e sugira o
+  que encerrar; só repita com `forcar: true` se ele mandar abrir assim mesmo. Para olhar antes,
+  `recursos_da_maquina` (RAM, sessões, Steam, docker, agente navegador e os maiores processos por RAM
+  e por CPU).
 - **Nome**: se você sabe do que o agente vai tratar, passe `nome`: o assunto em poucas palavras
   (`dados-privado-joao`, `lembretes-time-sensitive`). É o que o Rafael vê no tmux e na lista do Claude
   Code web. Sem verbo genérico ("retomar", "revisar") e sem apelido de repositório. Sem `nome`, ele

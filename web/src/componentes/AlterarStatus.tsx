@@ -1,6 +1,8 @@
 import { useState } from "react"
 
 import {
+  ErroDaApi,
+  type PedidoDeLancamento,
   type StatusTarefa,
   type Tarefa,
   useAlterarTarefa,
@@ -64,18 +66,19 @@ function TelaDeStatus({ tarefa, fechar }: { tarefa: Tarefa; fechar: () => void }
   const parar = tarefa.status === "em_andamento" && destino !== "em_andamento" && comAgente
   const nada = destino === tarefa.status && !iniciar
   const erro = alterar.error ?? lancar.error
+  // Recusa por falta de memória: mostra a medição e deixa abrir assim mesmo.
+  const poucaMemoria = lancar.error instanceof ErroDaApi ? lancar.error.recursos : undefined
 
-  const confirmar = () => {
+  const confirmar = (forcar = false) => {
     if (iniciar) {
-      lancar.mutate(
-        {
-          instrucao: instrucao.trim() || undefined,
-          nome: nome.trim() || undefined,
-          modelo: modelo || undefined,
-          esforco: esforco === PADRAO ? undefined : esforco,
-        },
-        { onSuccess: fechar },
-      )
+      const pedido: PedidoDeLancamento = {
+        instrucao: instrucao.trim() || undefined,
+        nome: nome.trim() || undefined,
+        modelo: modelo || undefined,
+        esforco: esforco === PADRAO ? undefined : esforco,
+        forcar: forcar || undefined,
+      }
+      lancar.mutate(pedido, { onSuccess: fechar })
     } else {
       alterar.mutate({ status: destino }, { onSuccess: fechar })
     }
@@ -161,16 +164,31 @@ function TelaDeStatus({ tarefa, fechar }: { tarefa: Tarefa; fechar: () => void }
           próprio tmux.
         </p>
       )}
-      {erro && <p className="text-destructive text-sm">{erro.message}</p>}
+      {poucaMemoria ? (
+        <div className="space-y-2 rounded-md border border-destructive/40 p-3 text-sm">
+          <p className="font-medium text-destructive">Pouca memória para subir mais um agente.</p>
+          <p className="whitespace-pre-line">{poucaMemoria.resumo}</p>
+          <p className="text-muted-foreground">
+            Sem swap, estourar a memória faz o sistema matar um processo. Libere memória ou abra assim mesmo.
+          </p>
+        </div>
+      ) : (
+        erro && <p className="text-destructive text-sm">{erro.message}</p>
+      )}
 
       <DialogFooter>
         <Button variant="ghost" onClick={fechar}>
           Cancelar
         </Button>
+        {poucaMemoria && iniciar && (
+          <Button variant="destructive" disabled={lancar.isPending} onClick={() => confirmar(true)}>
+            Abrir assim mesmo
+          </Button>
+        )}
         <Button
           variant={parar ? "destructive" : "default"}
           disabled={nada || alterar.isPending || lancar.isPending}
-          onClick={confirmar}
+          onClick={() => confirmar()}
         >
           {iniciar ? "Iniciar agente" : parar ? "Parar agente e alterar" : "Alterar"}
         </Button>

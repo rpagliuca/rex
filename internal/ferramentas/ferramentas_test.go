@@ -506,7 +506,7 @@ func TestServidorDoConectorSoVozEmProcesso(t *testing.T) {
 	for _, f := range lista.Tools {
 		nomes = append(nomes, f.Name)
 	}
-	if err != nil || strings.Join(nomes, ",") != "adiar_lembrete,alterar_lembrete,cancelar_lembrete,confirmar_lembrete,consultar_tarefas,criar_lembrete,criar_tarefa,lancar_agente,obter_tarefa,opcoes_do_lancador,proximos_lembretes,voz_enviar,voz_panorama,voz_situacao,voz_tecla" {
+	if err != nil || strings.Join(nomes, ",") != "adiar_lembrete,alterar_lembrete,cancelar_lembrete,confirmar_lembrete,consultar_tarefas,criar_lembrete,criar_tarefa,lancar_agente,obter_tarefa,opcoes_do_lancador,proximos_lembretes,recursos_da_maquina,voz_enviar,voz_panorama,voz_situacao,voz_tecla" {
 		t.Fatalf("ferramentas do conector: %v %+v", err, lista)
 	}
 	c := &chat{t: t, sessao: sessao}
