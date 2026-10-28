@@ -25,9 +25,9 @@ type Config struct {
 	// MemoriaMinimaMB é a RAM disponível abaixo da qual o lançamento é recusado sem forcar:
 	// a sessão nova (~1 GB) mais a folga. Padrão: 2500.
 	MemoriaMinimaMB int `json:"memoria_minima_mb"`
-	// SessaoNavegador é o nome da sessão que opera o Chromium com porta de depuração; a RAM dos
-	// dois é somada. Padrão: "agente-navegador".
-	SessaoNavegador string `json:"sessao_navegador"`
+	// Itens são as coisas grandes que se pode descer para liberar memória (um ambiente docker, a
+	// sessão do agente navegador, a Steam), cada uma com o jeito de reconhecê-la e de descê-la.
+	Itens []Item `json:"itens"`
 	// Intervalo da amostra de CPU. Padrão: 1 s.
 	Intervalo time.Duration `json:"-"`
 }
@@ -45,13 +45,35 @@ func Novo(cfg Config) *Medidor {
 	if cfg.MemoriaMinimaMB <= 0 {
 		cfg.MemoriaMinimaMB = 2500
 	}
-	if cfg.SessaoNavegador == "" {
-		cfg.SessaoNavegador = "agente-navegador"
-	}
 	if cfg.Intervalo <= 0 {
 		cfg.Intervalo = time.Second
 	}
 	return &Medidor{cfg: cfg, proc: "/proc", docker: containersDoDocker}
+}
+
+// Item é uma coisa grande da máquina. Reconhece-se por um destes (o primeiro preenchido):
+// Processos, nomes curtos (comm) exatos, ou prefixos terminados em "*", contando cada um com os
+// filhos; ProjetoDocker, o projeto do compose; Sessao, o nome (remote-control) de uma sessão do
+// Claude Code, com os filhos dela. Desce-se pausando Tarefa (o agente dela encerra e leva os filhos
+// junto) ou rodando Comando.
+type Item struct {
+	Nome          string   `json:"nome"`
+	Descricao     string   `json:"descricao"`
+	Processos     []string `json:"processos"`
+	ProjetoDocker string   `json:"projeto_docker"`
+	Sessao        string   `json:"sessao"`
+	Tarefa        string   `json:"tarefa"`
+	Comando       []string `json:"comando"`
+}
+
+// Item procura um item pelo nome.
+func (c Config) Item(nome string) (Item, bool) {
+	for _, i := range c.Itens {
+		if i.Nome == nome {
+			return i, true
+		}
+	}
+	return Item{}, false
 }
 
 // Config devolve a configuração com os padrões.
@@ -65,10 +87,8 @@ type Medicao struct {
 	Carga1Min    float64
 	// Sessoes são os Claude Code abertos, cada um com os filhos (servidores MCP).
 	Sessoes []Sessao
-	// Navegador é o Chromium com porta de depuração (o do agente navegador), com os filhos.
-	Navegador Grupo
-	// Steam é o cliente da Steam e o que ele abriu (jogos).
-	Steam      Grupo
+	// Itens são os da configuração, na mesma ordem.
+	Itens      []Grupo
 	Containers []Container
 	// ErroDocker diz por que os containers não foram medidos, se não foram.
 	ErroDocker      string
@@ -84,6 +104,7 @@ type Sessao struct {
 }
 
 type Grupo struct {
+	Nome   string
 	Aberto bool
 	MB     int
 }
@@ -107,6 +128,25 @@ type processo struct {
 	nome     string
 	rss      int64 // bytes: PSS quando legível, senão RSS
 	ticks    uint64
+}
+
+// Descer roda o comando do item e devolve a saída, com no máximo 3 min. Pausar a tarefa do item é
+// do servidor.
+func (m *Medidor) Descer(ctx context.Context, item Item) (string, error) {
+	if len(item.Comando) == 0 {
+		return "", nil
+	}
+	ctx, cancelar := context.WithTimeout(ctx, 3*time.Minute)
+	defer cancelar()
+	saida, err := exec.CommandContext(ctx, item.Comando[0], item.Comando[1:]...).CombinedOutput()
+	texto := strings.TrimSpace(string(saida))
+	if len(texto) > 2000 {
+		texto = "…" + texto[len(texto)-2000:]
+	}
+	if err != nil {
+		return texto, fmt.Errorf("descer %s: %v: %s", item.Nome, err, texto)
+	}
+	return texto, nil
 }
 
 // Medir lê a memória, a árvore de processos (duas vezes, para a CPU) e o docker em paralelo.
@@ -188,17 +228,21 @@ func (m *Medidor) Medir(ctx context.Context) (Medicao, error) {
 	}
 	sort.Slice(med.Sessoes, func(i, j int) bool { return med.Sessoes[i].MB > med.Sessoes[j].MB })
 
-	navegador := func(p processo) bool {
-		return (p.nome == "chromium" || p.nome == "chrome") && m.temArgumento(p.pid, "--remote-debugging-port")
-	}
-	for _, raiz := range raizes(navegador) {
-		med.Navegador.Aberto = true
-		med.Navegador.MB += soma(arvore(raiz))
-	}
-	steam := func(p processo) bool { return strings.Contains(strings.ToLower(p.nome), "steam") }
-	for _, raiz := range raizes(steam) {
-		med.Steam.Aberto = true
-		med.Steam.MB += soma(arvore(raiz))
+	grupoDeProcessos := func(nomes []string) Grupo {
+		var g Grupo
+		eh := func(p processo) bool {
+			for _, n := range nomes {
+				if p.nome == n || strings.HasSuffix(n, "*") && strings.HasPrefix(p.nome, strings.TrimSuffix(n, "*")) {
+					return true
+				}
+			}
+			return false
+		}
+		for _, raiz := range raizes(eh) {
+			g.Aberto = true
+			g.MB += soma(arvore(raiz))
+		}
+		return g
 	}
 
 	var todos []Processo
@@ -220,6 +264,29 @@ func (m *Medidor) Medir(ctx context.Context) (Medicao, error) {
 	med.Containers = containers
 	if erroDocker != nil {
 		med.ErroDocker = erroDocker.Error()
+	}
+	for _, item := range m.cfg.Itens {
+		var g Grupo
+		switch {
+		case len(item.Processos) > 0:
+			g = grupoDeProcessos(item.Processos)
+		case item.ProjetoDocker != "":
+			for _, c := range containers {
+				if c.Projeto == item.ProjetoDocker {
+					g.Aberto = true
+					g.MB += c.MB
+				}
+			}
+		case item.Sessao != "":
+			for _, x := range med.Sessoes {
+				if x.Nome == item.Sessao {
+					g.Aberto = true
+					g.MB += x.MB
+				}
+			}
+		}
+		g.Nome = item.Nome
+		med.Itens = append(med.Itens, g)
 	}
 	return med, nil
 }
@@ -336,11 +403,6 @@ func (m *Medidor) argumentos(pid int) []string {
 		return nil
 	}
 	return strings.Split(strings.TrimRight(string(b), "\x00"), "\x00")
-}
-
-// temArgumento procura na linha de comando inteira: o Chromium reescreve o argv numa string só.
-func (m *Medidor) temArgumento(pid int, trecho string) bool {
-	return strings.Contains(strings.Join(m.argumentos(pid), " "), trecho)
 }
 
 // opcao devolve o valor de --nome valor ou --nome=valor.

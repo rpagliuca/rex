@@ -57,8 +57,9 @@ diga qual, para quê e com qual modelo e esforço.
 - **Memória**: o `lancar_agente` mede a máquina antes de subir e recusa com pouca RAM disponível,
   devolvendo o que ocupa e as sessões que esperam o Rafael há mais tempo. Passe isso a ele e sugira o
   que encerrar; só repita com `forcar: true` se ele mandar abrir assim mesmo. Para olhar antes,
-  `recursos_da_maquina` (RAM, sessões, Steam, docker, agente navegador e os maiores processos por RAM
-  e por CPU).
+  `recursos_da_maquina` (RAM, sessões, itens abertos, docker e os maiores processos por RAM e por
+  CPU). Para liberar, `descer_item` fecha um item aberto (Steam, ambiente docker, agente navegador…),
+  só com o sim do Rafael para aquele item; uma recusa (lock com dono) é a resposta: diga-a a ele.
 - **Nome**: se você sabe do que o agente vai tratar, passe `nome`: o assunto em poucas palavras
   (`dados-privado-joao`, `lembretes-time-sensitive`). É o que o Rafael vê no tmux e na lista do Claude
   Code web. Sem verbo genérico ("retomar", "revisar") e sem apelido de repositório. Sem `nome`, ele

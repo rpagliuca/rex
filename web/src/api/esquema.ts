@@ -535,13 +535,34 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description RAM e CPU da máquina do lançador: disponível, sessões de trabalho abertas, Steam, Chromium do
-         *     agente navegador, containers do docker por projeto e os maiores processos por RAM e por CPU (só
-         *     nome e pid). Leva cerca de 2 s (amostra de CPU e docker stats). 404 se não há lançador.
+        /** @description RAM e CPU da máquina do lançador: disponível, sessões de trabalho abertas, os itens que se pode
+         *     descer (Steam, ambientes docker, agente navegador…), containers do docker por projeto e os
+         *     maiores processos por RAM e por CPU (só nome e pid). Leva cerca de 2 s (amostra de CPU e
+         *     docker stats). 404 se não há lançador.
          *      */
         get: operations["recursosDaMaquina"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/recursos/descida": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Desce um item da configuração para liberar memória: pausa a tarefa dele (o agente encerra a
+         *     sessão e leva os filhos junto) ou roda o comando dele. Subir não tem rota própria: é o
+         *     lancar_agente ou o jeito de sempre de cada coisa.
+         *      */
+        post: operations["descerItem"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1330,8 +1351,8 @@ export interface components {
             carga_1min: number;
             /** @description Claude Code abertos, cada um com os servidores MCP filhos, da maior para a menor */
             sessoes: components["schemas"]["SessaoNaMaquina"][];
-            agente_navegador: components["schemas"]["GrupoDeProcessos"];
-            steam: components["schemas"]["GrupoDeProcessos"];
+            /** @description Coisas grandes que se pode descer (descer_item) para liberar memória, abertas ou não */
+            itens: components["schemas"]["ItemDaMaquina"][];
             /** @description Containers agrupados pelo projeto do compose, do maior para o menor */
             docker: components["schemas"]["ProjetoDocker"][];
             /** @description Por que os containers não foram medidos */
@@ -1353,9 +1374,22 @@ export interface components {
             aguardando?: components["schemas"]["EsperaDeSessao"];
             memoria_mb: number;
         };
-        GrupoDeProcessos: {
+        ItemDaMaquina: {
+            nome: string;
+            /** @description O que é e o que descer faz */
+            descricao: string;
             aberto: boolean;
+            /** @description O que descer libera, aproximadamente */
             memoria_mb: number;
+        };
+        PedidoDeDescida: {
+            /** @description Nome do item, como em Recursos.itens */
+            item: string;
+        };
+        Descida: {
+            item: string;
+            /** @description O que foi feito: a tarefa pausada ou a saída do comando */
+            feito: string;
         };
         ProjetoDocker: {
             /** @description com.docker.compose.project; vazio para container avulso */
@@ -2769,6 +2803,32 @@ export interface operations {
                 };
             };
             404: components["responses"]["Erro"];
+        };
+    };
+    descerItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PedidoDeDescida"];
+            };
+        };
+        responses: {
+            /** @description Descido */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Descida"];
+                };
+            };
+            404: components["responses"]["Erro"];
+            409: components["responses"]["Erro"];
         };
     };
     listarSessoesDaTarefa: {

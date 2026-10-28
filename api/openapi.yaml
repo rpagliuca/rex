@@ -663,9 +663,10 @@ paths:
     get:
       operationId: recursosDaMaquina
       description: |
-        RAM e CPU da máquina do lançador: disponível, sessões de trabalho abertas, Steam, Chromium do
-        agente navegador, containers do docker por projeto e os maiores processos por RAM e por CPU (só
-        nome e pid). Leva cerca de 2 s (amostra de CPU e docker stats). 404 se não há lançador.
+        RAM e CPU da máquina do lançador: disponível, sessões de trabalho abertas, os itens que se pode
+        descer (Steam, ambientes docker, agente navegador…), containers do docker por projeto e os
+        maiores processos por RAM e por CPU (só nome e pid). Leva cerca de 2 s (amostra de CPU e
+        docker stats). 404 se não há lançador.
       responses:
         '200':
           description: Medição
@@ -673,6 +674,26 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Recursos' }
         '404': { $ref: '#/components/responses/Erro' }
+  /recursos/descida:
+    post:
+      operationId: descerItem
+      description: |
+        Desce um item da configuração para liberar memória: pausa a tarefa dele (o agente encerra a
+        sessão e leva os filhos junto) ou roda o comando dele. Subir não tem rota própria: é o
+        lancar_agente ou o jeito de sempre de cada coisa.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PedidoDeDescida' }
+      responses:
+        '200':
+          description: Descido
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Descida' }
+        '404': { $ref: '#/components/responses/Erro' }
+        '409': { $ref: '#/components/responses/Erro' }
   /tarefas/{id}/sessoes:
     parameters:
       - $ref: '#/components/parameters/Id'
@@ -1609,7 +1630,7 @@ components:
         forcar: { type: boolean, description: 'Sobe mesmo com menos RAM disponível que o mínimo; só depois de o Rafael confirmar' }
     Recursos:
       type: object
-      required: [medido_em, memoria_total_mb, memoria_disponivel_mb, memoria_minima_mb, abaixo_do_minimo, nucleos, carga_1min, sessoes, agente_navegador, steam, docker, maiores_por_memoria, maiores_por_cpu, resumo]
+      required: [medido_em, memoria_total_mb, memoria_disponivel_mb, memoria_minima_mb, abaixo_do_minimo, nucleos, carga_1min, sessoes, itens, docker, maiores_por_memoria, maiores_por_cpu, resumo]
       properties:
         medido_em: { type: string, format: date-time }
         memoria_total_mb: { type: integer }
@@ -1622,10 +1643,10 @@ components:
           type: array
           description: 'Claude Code abertos, cada um com os servidores MCP filhos, da maior para a menor'
           items: { $ref: '#/components/schemas/SessaoNaMaquina' }
-        agente_navegador:
-          $ref: '#/components/schemas/GrupoDeProcessos'
-        steam:
-          $ref: '#/components/schemas/GrupoDeProcessos'
+        itens:
+          type: array
+          description: 'Coisas grandes que se pode descer (descer_item) para liberar memória, abertas ou não'
+          items: { $ref: '#/components/schemas/ItemDaMaquina' }
         docker:
           type: array
           description: Containers agrupados pelo projeto do compose, do maior para o menor
@@ -1649,12 +1670,25 @@ components:
           items: { type: string }
         aguardando: { $ref: '#/components/schemas/EsperaDeSessao' }
         memoria_mb: { type: integer }
-    GrupoDeProcessos:
+    ItemDaMaquina:
       type: object
-      required: [aberto, memoria_mb]
+      required: [nome, descricao, aberto, memoria_mb]
       properties:
+        nome: { type: string }
+        descricao: { type: string, description: 'O que é e o que descer faz' }
         aberto: { type: boolean }
-        memoria_mb: { type: integer }
+        memoria_mb: { type: integer, description: 'O que descer libera, aproximadamente' }
+    PedidoDeDescida:
+      type: object
+      required: [item]
+      properties:
+        item: { type: string, description: 'Nome do item, como em Recursos.itens' }
+    Descida:
+      type: object
+      required: [item, feito]
+      properties:
+        item: { type: string }
+        feito: { type: string, description: 'O que foi feito: a tarefa pausada ou a saída do comando' }
     ProjetoDocker:
       type: object
       required: [projeto, containers, memoria_mb]

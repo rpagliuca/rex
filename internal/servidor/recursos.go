@@ -2,6 +2,7 @@ package servidor
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"net/http"
 	"sort"
@@ -15,6 +16,7 @@ import (
 // Medidor mede a máquina do lançador.
 type Medidor interface {
 	Medir(ctx context.Context) (recursos.Medicao, error)
+	Descer(ctx context.Context, item recursos.Item) (string, error)
 	Config() recursos.Config
 }
 
@@ -70,7 +72,6 @@ func (s *Servidor) medir(ctx context.Context) (api.Recursos, error) {
 			porChat[*x.Chat] = x
 		}
 	}
-	navegador := s.medidor.Config().SessaoNavegador
 	r := api.Recursos{
 		MedidoEm:            s.agora().UTC(),
 		MemoriaTotalMb:      m.TotalMB,
@@ -80,8 +81,7 @@ func (s *Servidor) medir(ctx context.Context) (api.Recursos, error) {
 		Nucleos:             m.Nucleos,
 		Carga1min:           float32(m.Carga1Min),
 		Sessoes:             []api.SessaoNaMaquina{},
-		AgenteNavegador:     api.GrupoDeProcessos{Aberto: m.Navegador.Aberto, MemoriaMb: m.Navegador.MB},
-		Steam:               api.GrupoDeProcessos{Aberto: m.Steam.Aberto, MemoriaMb: m.Steam.MB},
+		Itens:               []api.ItemDaMaquina{},
 		Docker:              []api.ProjetoDocker{},
 		MaioresPorMemoria:   processosNaMaquina(m.MaioresPorRAM),
 		MaioresPorCpu:       processosNaMaquina(m.MaioresPorCPU),
@@ -96,11 +96,11 @@ func (s *Servidor) medir(ctx context.Context) (api.Recursos, error) {
 				sm.Nome = *ativa.Nome
 			}
 		}
-		if sm.Nome == navegador {
-			r.AgenteNavegador.Aberto = true
-			r.AgenteNavegador.MemoriaMb += x.MB
-		}
 		r.Sessoes = append(r.Sessoes, sm)
+	}
+	itens := s.medidor.Config().Itens
+	for i, g := range m.Itens {
+		r.Itens = append(r.Itens, api.ItemDaMaquina{Nome: g.Nome, Descricao: itens[i].Descricao, Aberto: g.Aberto, MemoriaMb: g.MB})
 	}
 	projetos := map[string]int{}
 	for _, c := range m.Containers {
@@ -127,6 +127,95 @@ func (s *Servidor) medir(ctx context.Context) (api.Recursos, error) {
 	return r, nil
 }
 
+// DescerItem desce um item para liberar memória: pausa a tarefa dele, se tiver, e roda o comando.
+func (s *Servidor) DescerItem(w http.ResponseWriter, r *http.Request) {
+	if s.medidor == nil {
+		responderErro(w, falha(http.StatusNotFound, "a medição de recursos não está configurada"))
+		return
+	}
+	var pedido api.PedidoDeDescida
+	if err := ler(r, &pedido); err != nil {
+		responderErro(w, err)
+		return
+	}
+	cfg := s.medidor.Config()
+	item, ok := cfg.Item(pedido.Item)
+	if !ok {
+		var nomes []string
+		for _, i := range cfg.Itens {
+			nomes = append(nomes, i.Nome)
+		}
+		responderErro(w, falha(http.StatusNotFound, "item desconhecido: %q (há: %s)", pedido.Item, strings.Join(nomes, ", ")))
+		return
+	}
+	var feito []string
+	if item.Tarefa != "" {
+		f, err := s.pausarParaDescer(r, item)
+		if err != nil {
+			responderErro(w, err)
+			return
+		}
+		feito = append(feito, f)
+	}
+	if len(item.Comando) > 0 {
+		saida, err := s.medidor.Descer(r.Context(), item)
+		if err != nil {
+			responderErro(w, falha(http.StatusConflict, "%v", err))
+			return
+		}
+		if saida == "" {
+			saida = "comando rodou sem saída"
+		}
+		feito = append(feito, saida)
+	}
+	responder(w, http.StatusOK, api.Descida{Item: item.Nome, Feito: strings.Join(feito, "\n")})
+}
+
+// pausarParaDescer pausa a tarefa do item, se está em andamento: o lançador pede ao agente que
+// encerre, e o agente leva os filhos dele (servidores MCP, navegador) junto.
+func (s *Servidor) pausarParaDescer(r *http.Request, item recursos.Item) (string, error) {
+	n, err := numero(item.Tarefa, "T")
+	if err != nil {
+		return "", err
+	}
+	var alterada api.Tarefa
+	var anterior api.StatusTarefa
+	var quem string
+	err = s.emTransacao(func(tx *sql.Tx) (err error) {
+		if quem, err = autor(tx, r); err != nil {
+			return err
+		}
+		atual, err := carregarTarefa(tx, n)
+		if err != nil {
+			return err
+		}
+		anterior = atual.Status
+		if anterior != api.EmAndamento {
+			alterada = atual
+			return nil
+		}
+		if _, err := tx.Exec(`UPDATE tarefas SET status = ?, atualizada_em = ? WHERE id = ?`, string(api.Pausada), s.momento(), n); err != nil {
+			return err
+		}
+		if alterada, err = carregarTarefa(tx, n); err != nil {
+			return err
+		}
+		return s.registrarEvento(tx, quem, alterada.Id, "tarefa_alterada", map[string]any{"status": api.Pausada, "descida": item.Nome})
+	})
+	if err != nil {
+		return "", err
+	}
+	if anterior != api.EmAndamento {
+		return fmt.Sprintf("a tarefa %s já estava %s; nada a pausar", alterada.Id, anterior), nil
+	}
+	s.avisarMudanca(MudancaDeStatus{Tarefa: alterada, Anterior: anterior, Autor: quem})
+	msg := fmt.Sprintf("tarefa %s pausada", alterada.Id)
+	if alterada.SessaoAtiva != nil {
+		msg += fmt.Sprintf("; o agente da sessão %s vai encerrar e liberar a memória em alguns segundos", *alterada.SessaoAtiva)
+	}
+	return msg, nil
+}
+
 func processosNaMaquina(ps []recursos.Processo) []api.ProcessoNaMaquina {
 	out := []api.ProcessoNaMaquina{}
 	for _, p := range ps {
@@ -149,15 +238,22 @@ func resumoDosRecursos(r api.Recursos, agora time.Time) string {
 		total += x.MemoriaMb
 	}
 	fmt.Fprintf(&b, "Sessões do Claude Code abertas: %d, somando %s.\n", len(r.Sessoes), gb(total))
-	aberto := func(nome string, g api.GrupoDeProcessos, sim, nao string) {
-		if g.Aberto {
-			fmt.Fprintf(&b, "%s: %s, %s.\n", nome, sim, gb(g.MemoriaMb))
-		} else {
-			fmt.Fprintf(&b, "%s: %s.\n", nome, nao)
+	if len(r.Itens) > 0 {
+		var abertos, fechados []string
+		for _, i := range r.Itens {
+			if i.Aberto {
+				abertos = append(abertos, fmt.Sprintf("%s %s", i.Nome, gb(i.MemoriaMb)))
+			} else {
+				fechados = append(fechados, i.Nome)
+			}
+		}
+		if len(abertos) > 0 {
+			fmt.Fprintf(&b, "Abertos, e o que descer libera: %s.\n", strings.Join(abertos, "; "))
+		}
+		if len(fechados) > 0 {
+			fmt.Fprintf(&b, "Fechados: %s.\n", strings.Join(fechados, ", "))
 		}
 	}
-	aberto("Agente navegador", r.AgenteNavegador, "rodando, com o Chromium", "parado")
-	aberto("Steam", r.Steam, "aberta", "fechada")
 	switch {
 	case r.ErroDocker != nil:
 		fmt.Fprintf(&b, "Docker: não medido (%s).\n", *r.ErroDocker)
