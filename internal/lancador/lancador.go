@@ -56,6 +56,9 @@ type Config struct {
 	Esforcos          []string `json:"esforcos"`
 	ArgumentosEsforco []string `json:"argumentos_esforco"`
 	EsforcoPadrao     string   `json:"esforco_padrao"`
+	// ArgumentosPorTarefa acrescenta argumentos ao comando só do agente de uma tarefa (ex.: um
+	// --mcp-config que nenhum outro agente deve carregar). A chave é o identificador da tarefa.
+	ArgumentosPorTarefa map[string][]string `json:"argumentos_por_tarefa"`
 	// RemoverDoAmbiente lista variáveis que o agente não pode herdar do servidor tmux (por exemplo,
 	// as de um agente que abriu o tmux), para que o agente novo defina as suas.
 	RemoverDoAmbiente []string `json:"remover_do_ambiente"`
@@ -301,6 +304,7 @@ func (l *Lancador) iniciar(t api.Tarefa, pedido api.PedidoDeLancamento) error {
 			args = append(args, strings.ReplaceAll(parte, "{esforco}", *pedido.Esforco))
 		}
 	}
+	args = append(args, l.cfg.ArgumentosPorTarefa[t.Id]...)
 	prompt := preencher(l.cfg.PromptIniciar, t)
 	if pedido.Instrucao != nil && strings.TrimSpace(*pedido.Instrucao) != "" {
 		prompt += "\n\nInstrução adicional de quem reabriu a tarefa (o resto do contexto está na tarefa e nas " +
