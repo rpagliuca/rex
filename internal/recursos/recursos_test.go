@@ -56,14 +56,22 @@ func TestMedirAgrupa(t *testing.T) {
 		{pid: 12, pai: 10, nome: "claude", mb: 50}, // subprocesso: conta na sessão de cima
 		{pid: 20, pai: 1, nome: "claude", mb: 300, args: []string{"claude"}},
 		{pid: 21, pai: 20, nome: "node", mb: 100, ambiente: []string{"CLAUDE_CODE_SESSION_ID=chat-b"}},
-		{pid: 30, pai: 1, nome: "chromium", mb: 500, args: []string{"/usr/lib/chromium/chromium --headless --remote-debugging-port=9222"}},
-		{pid: 31, pai: 30, nome: "chromium", mb: 700, args: []string{"/usr/lib/chromium/chromium --type=renderer"}},
-		{pid: 40, pai: 1, nome: "chromium", mb: 900, args: []string{"chromium"}}, // o navegador de uma pessoa
+		{pid: 13, pai: 10, nome: "chromium", mb: 500}, // o navegador que o MCP da sessão abriu
+		{pid: 30, pai: 1, nome: "chrome", mb: 500},
+		{pid: 31, pai: 30, nome: "chrome", mb: 700},
+		{pid: 32, pai: 1, nome: "chrome-devtools", mb: 900}, // não é o Chrome: nome exato
 		{pid: 50, pai: 1, nome: "steam", mb: 400},
-		{pid: 51, pai: 50, nome: "steamwebhelper", mb: 500},
-		{pid: 52, pai: 50, nome: "Stardew Valley", mb: 600},
+		{pid: 51, pai: 50, nome: "StardewValley", mb: 600},
+		{pid: 60, pai: 1, nome: "pv-adverb", mb: 10},
+		{pid: 61, pai: 60, nome: "steamwebhelper", mb: 500}, // por prefixo, mesmo fora da árvore da steam
 	})
-	m := Novo(Config{Intervalo: time.Millisecond})
+	m := Novo(Config{Intervalo: time.Millisecond, Itens: []Item{
+		{Nome: "agente-navegador", Sessao: "trabalho-a"},
+		{Nome: "steam", Processos: []string{"steam*"}},
+		{Nome: "chrome", Processos: []string{"chrome"}},
+		{Nome: "app", ProjetoDocker: "app"},
+		{Nome: "nada", Processos: []string{"steamx"}},
+	}})
 	m.proc = proc
 	m.docker = func(context.Context) ([]Container, error) {
 		return []Container{{Nome: "db", Projeto: "app", MB: 300}}, nil
@@ -75,15 +83,28 @@ func TestMedirAgrupa(t *testing.T) {
 	if med.TotalMB != 15839 || med.DisponivelMB != 2000 || med.MemoriaMinimaMB != 2500 || med.Carga1Min != 1.5 {
 		t.Fatalf("memória: %+v", med)
 	}
-	esperadas := []Sessao{{Chat: "chat-a", Nome: "trabalho-a", MB: 650}, {Chat: "chat-b", MB: 400}}
+	esperadas := []Sessao{{Chat: "chat-a", Nome: "trabalho-a", MB: 1150}, {Chat: "chat-b", MB: 400}}
 	if fmt.Sprint(med.Sessoes) != fmt.Sprint(esperadas) {
 		t.Fatalf("sessões: %+v", med.Sessoes)
 	}
-	if med.Navegador != (Grupo{true, 1200}) || med.Steam != (Grupo{true, 1500}) {
-		t.Fatalf("navegador %+v, steam %+v", med.Navegador, med.Steam)
+	itens := []Grupo{{"agente-navegador", true, 1150}, {"steam", true, 1500}, {"chrome", true, 1200}, {"app", true, 300}, {"nada", false, 0}}
+	if fmt.Sprint(med.Itens) != fmt.Sprint(itens) {
+		t.Fatalf("itens: %+v", med.Itens)
 	}
-	if len(med.Containers) != 1 || len(med.MaioresPorRAM) != 12 || med.MaioresPorRAM[0].Nome != "chromium" || med.MaioresPorRAM[0].Pid != 40 {
+	if len(med.Containers) != 1 || len(med.MaioresPorRAM) != 14 || med.MaioresPorRAM[0].Nome != "chrome-devtools" || med.MaioresPorRAM[0].Pid != 32 {
 		t.Fatalf("containers %+v, maiores %+v", med.Containers, med.MaioresPorRAM)
+	}
+}
+
+func TestDescerRodaOComando(t *testing.T) {
+	m := Novo(Config{})
+	saida, err := m.Descer(context.Background(), Item{Nome: "x", Comando: []string{"sh", "-c", "echo fechado"}})
+	if err != nil || saida != "fechado" {
+		t.Fatalf("%q %v", saida, err)
+	}
+	_, err = m.Descer(context.Background(), Item{Nome: "travado", Comando: []string{"sh", "-c", "echo o lock é de outro agente; exit 1"}})
+	if err == nil || !strings.Contains(err.Error(), "o lock é de outro agente") {
+		t.Fatalf("recusa: %v", err)
 	}
 }
 
