@@ -277,6 +277,8 @@ func TestImportacaoPreservaDatasEHistorico(t *testing.T) {
 // lancadorFalso aceita só "Modelo A" e guarda as mudanças que recebeu.
 type lancadorFalso struct{ mudancas []MudancaDeStatus }
 
+func (l *lancadorFalso) ConferirOrfa(api.Sessao) error { return nil }
+
 func (l *lancadorFalso) Opcoes() api.OpcoesDeLancamento {
 	return api.OpcoesDeLancamento{Modelos: []string{"Modelo A"}, Esforcos: []string{"high"}, ModeloPadrao: "Modelo A"}
 }

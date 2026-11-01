@@ -49,6 +49,9 @@ type Lancador interface {
 	Opcoes() api.OpcoesDeLancamento
 	// Validar confere modelo e esforço do pedido e preenche os padrões.
 	Validar(p *api.PedidoDeLancamento) error
+	// ConferirOrfa devolve nil só quando prova que o agente da sessão não está vivo; o erro diz por
+	// que não dá para afirmar isso.
+	ConferirOrfa(x api.Sessao) error
 }
 
 // ComLancador liga o lançador aos endpoints de lançamento.

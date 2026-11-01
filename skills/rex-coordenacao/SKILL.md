@@ -81,8 +81,12 @@ diga qual, para quê e com qual modelo e esforço.
 - **Parar** (`pausada`, `bloqueada`, `em_validacao`, `concluida`): `alterar_tarefa(id, status)`. Se
   havia agente, ele encerra com resumo sozinho. Não mande mensagens a ele nem feche o tmux dele.
 - **Retomar**: `lancar_agente(id)`. Sobe um agente novo, que começa pelo resumo da última sessão.
-- **Tarefa com sessão ativa mas sem agente vivo**: encerre pelo frontend (encerramento manual, com
-  resumo). Não use a API por fora.
+- **Tarefa com sessão ativa mas sem agente vivo** (`lancar_agente` recusa com "já tem a sessão
+  ativa", por exemplo depois de um reboot): `encerrar_sessao_orfa(sessao)` e `lancar_agente` de novo.
+  O rex confere se o agente morreu e recusa se não puder provar; a recusa é a resposta: diga-a ao
+  Rafael, sem contornar pela API. Sobra o frontend (encerramento manual), para ele decidir. Se souber
+  onde o trabalho parou, passe `observacao`: o resumo da tarefa ganha um aviso com o journal da sessão
+  e mantém o que tinha.
 
 ## Achar uma tarefa
 

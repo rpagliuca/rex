@@ -145,7 +145,7 @@ quem moveu já decidiu. Pare o que estiver fazendo, registre no journal onde par
 
 | Mensagem | Significa | Faça |
 |---|---|---|
-| "a tarefa T-… já tem a sessão ativa S-…" | Outro chat está trabalhando nela | Pare e avise o usuário. Nunca encerre a sessão de outro chat |
+| "a tarefa T-… já tem a sessão ativa S-…" | Outro chat está trabalhando nela, ou ela ficou órfã (sem agente vivo, como depois de um reboot) | Pare e avise o usuário. Nunca encerre a sessão de outro chat. Só com o sim dele, `encerrar_sessao_orfa` (skill `rex-coordenacao`): ela recusa se o agente estiver vivo |
 | "este chat já tem a sessão S-… aberta" | Você já iniciou | Use `vincular_tarefa` ou continue na mesma |
 | "não há sessão aberta neste chat" | Faltou `iniciar_sessao` | Inicie antes de operar a sessão |
 | "o resumo é obrigatório" | Encerramento sem resumo | Escreva o resumo |

@@ -2,6 +2,7 @@ package lancador
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/rpagliuca/rex/api"
@@ -28,6 +29,28 @@ func (l *Lancador) painelDaSessao(x api.Sessao) string {
 		}
 	}
 	return ""
+}
+
+// ConferirOrfa devolve nil só quando prova que o agente da sessão não está vivo. Na dúvida, recusa:
+// encerrar a sessão de um agente vivo tira dele a tarefa sem ele saber. Painel não basta, porque um
+// chat aberto fora do tmux não tem painel; por isso os processos do chat contam também, mesmo um que
+// o agente tenha soltado e deixado para trás.
+func (l *Lancador) ConferirOrfa(x api.Sessao) error {
+	switch {
+	case x.TipoAgente != api.Ia:
+		return errors.New("é a sessão de um humano, que a encerra pelo frontend")
+	case x.Servidor != l.maquina:
+		return fmt.Errorf("ela roda em %s, e daqui só dá para conferir %s", x.Servidor, l.maquina)
+	case x.Chat == nil || *x.Chat == "":
+		return errors.New("ela não registrou o chat, então não dá para procurar o agente")
+	}
+	if nome := l.painelDaSessao(x); nome != "" {
+		return fmt.Errorf("o agente dela está no tmux %s", nome)
+	}
+	if pids := l.processosDoChat(*x.Chat); len(pids) > 0 {
+		return fmt.Errorf("ainda há processos do chat dela, fora do tmux (pids %v)", pids)
+	}
+	return nil
 }
 
 // Tela devolve o que a tela do agente mostra agora.
