@@ -167,9 +167,9 @@ func TestAvisaAgenteSubidoAntesDaRenomeacao(t *testing.T) {
 func TestNomeCurto(t *testing.T) {
 	casos := map[string]string{
 		"Revisão do backup de fotos":    "backup-fotos",
-		"Usina — causa raiz das perdas": "usina-causa-raiz-perdas",
+		"Horta — causa raiz das perdas": "horta-causa-raiz-perdas",
 		"AD":                            "tarefa",
-		"Retomar implantação de Samba com Active Directory (AD) no cartório": "samba-active-directory",
+		"Retomar implantação de Samba com Active Directory (AD) no escritório": "samba-active-directory",
 		"Criar atalhos da Siri": "atalhos-siri",
 		"Revisar proposta":      "proposta",
 	}
@@ -308,7 +308,7 @@ func TestNomeDadoPorQuemLanca(t *testing.T) {
 	if err := l.Validar(&pedido); err != nil || *pedido.Nome != "dados-privado-do-joao" {
 		t.Fatalf("nome não normalizado: %v %v", pedido.Nome, err)
 	}
-	tarefa := api.Tarefa{Id: "T-0136", Titulo: "Retomar implantação de Samba com Active Directory (AD) no cartório", Status: api.EmAndamento}
+	tarefa := api.Tarefa{Id: "T-0136", Titulo: "Retomar implantação de Samba com Active Directory (AD) no escritório", Status: api.EmAndamento}
 	l.MudouStatus(servidor.MudancaDeStatus{Tarefa: tarefa, Anterior: api.Pausada, Autor: "local", Lancamento: &pedido})
 	if _, ok := f.sessoes["dados-privado-do-joao"]; !ok {
 		t.Fatalf("tmux sem o nome dado: %v", f.sessoes)

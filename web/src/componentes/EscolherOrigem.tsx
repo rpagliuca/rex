@@ -16,7 +16,7 @@ export function CriarOrigem({ criada, cancelar }: { criada: (id: string) => void
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Input className="sm:w-60" placeholder="Nome (ex.: Provimento CNJ 213/2026)" value={nome} onChange={(e) => setNome(e.target.value)} />
+      <Input className="sm:w-60" placeholder="Nome (ex.: Lei 13.709/2018 (LGPD))" value={nome} onChange={(e) => setNome(e.target.value)} />
       <Select value={tipo} onValueChange={(v) => setTipo(v as Origem["tipo"])}>
         <SelectTrigger className="w-36">
           <SelectValue />

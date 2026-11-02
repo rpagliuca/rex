@@ -108,7 +108,7 @@ de "cópia fora do ambiente principal", que deriva de "cumprir a lei de dados".
   algum (sem `deriva_de`, deriva do zero), então todo requisito tem uma trilha até o zero: é ela que
   dá o contexto inteiro dele.
 - **Requisito é uma afirmação testável (falseável)**, no presente, sobre o estado do mundo — não uma
-  ação. "O backup do cartório tem cópia em dois destinos independentes, verificada toda semana" ✅;
+  ação. "O backup do escritório tem cópia em dois destinos independentes, verificada toda semana" ✅;
   "Fazer backup" ❌ (isso é tarefa). Quanto mais abaixo na cadeia, mais concreto e verificável.
 - **Boa prática: no máximo 5 requisitos derivados de cada um.** Passou disso, agrupe-os sob
   requisitos intermediários (cada um também uma afirmação testável). Não é bloqueado; o requisito

@@ -144,7 +144,7 @@ func TestVozPanorama(t *testing.T) {
 	a := novoAmbiente(t)
 	v := &vozFalsa{tela: telaOciosa, conversa: filepath.Join(t.TempDir(), "c.jsonl")}
 	a.servidor.ComVoz(v)
-	deploy := a.tarefa("Deploy do cartório")
+	deploy := a.tarefa("Deploy do site")
 	s := a.sessao("Claude Opus 5.5 Medium", deploy.Id)
 	a.chamar("POST", "/sessoes/"+s.Sessao.Id+"/espera", s.Token, api.Espera{Mensagem: "aprovar o PR"}, 200, nil)
 	os.WriteFile(v.conversa, []byte(`{"type":"assistant","uuid":"u0","timestamp":"2026-10-22T09:00:00Z","message":{"content":[{"type":"text","text":"Começando."}]}}
@@ -159,12 +159,12 @@ func TestVozPanorama(t *testing.T) {
 	}
 	p := panorama[0]
 	if p.Sessao != s.Sessao.Id || p.Aguardando == nil || *p.Aguardando != "aprovar o PR" || p.Estado != api.VozOcioso ||
-		p.NaoOuvidas != 1 || p.Ultima == nil || *p.Ultima != "PR aberto." || (*p.Titulos)[0] != "Deploy do cartório" {
+		p.NaoOuvidas != 1 || p.Ultima == nil || *p.Ultima != "PR aberto." || (*p.Titulos)[0] != "Deploy do site" {
 		t.Fatalf("panorama: %+v", p)
 	}
 
 	// Leve: palavras do nome, só o começo de um texto longo e nada da tela, nem pedindo permissão.
-	a.chamar("PATCH", "/sessoes/"+s.Sessao.Id, s.Token, api.AlteracaoSessao{Nome: ptr("deploy-cartorio")}, 200, nil)
+	a.chamar("PATCH", "/sessoes/"+s.Sessao.Id, s.Token, api.AlteracaoSessao{Nome: ptr("deploy-site")}, 200, nil)
 	longo := strings.Repeat("palavra ", 20) + "fim. " + strings.Repeat("resto ", 300)
 	linha, _ := json.Marshal(map[string]any{"type": "assistant", "uuid": "u3", "timestamp": "2026-10-22T10:01:00Z",
 		"message": map[string]any{"content": []map[string]string{{"type": "text", "text": longo}}}})
@@ -174,7 +174,7 @@ func TestVozPanorama(t *testing.T) {
 	v.tela = telaPermissao
 	a.chamar("GET", "/voz/sessoes", "", nil, 200, &panorama)
 	p = panorama[0]
-	if strings.Join(*p.PalavrasChave, ",") != "deploy,cartorio" || p.Estado != api.VozPedindoPermissao ||
+	if strings.Join(*p.PalavrasChave, ",") != "deploy,site" || p.Estado != api.VozPedindoPermissao ||
 		*p.Ultima != strings.Repeat("palavra ", 20)+"fim." {
 		t.Fatalf("panorama leve: %+v %q", p, *p.Ultima)
 	}

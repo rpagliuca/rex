@@ -522,7 +522,7 @@ func TestServidorDoConectorSoVozEmProcesso(t *testing.T) {
 	}
 	// O conector cria e confirma lembretes sem sessão aberta: o autor é local, como no frontend.
 	var lembrete ResumoDeLembrete
-	c.chamar("criar_lembrete", map[string]any{"texto": "ligar para o cartório", "quando": "2030-01-02T14:00:00-03:00",
+	c.chamar("criar_lembrete", map[string]any{"texto": "ligar para o dentista", "quando": "2030-01-02T14:00:00-03:00",
 		"precisao": "hora", "organizacao": "Pessoal"}, &lembrete)
 	c.chamar("confirmar_lembrete", map[string]any{"id": lembrete.Id}, &lembrete)
 	if lembrete.Status != "confirmado" {

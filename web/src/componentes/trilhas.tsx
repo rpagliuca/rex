@@ -21,7 +21,7 @@ export function trilhasAteOZero(id: string, porId: Map<string, Requisito>, limit
   return trilhas
 }
 
-// Uma trilha como migalhas: Zero › Cartório › Provimento 213 › …
+// Uma trilha como migalhas: Zero › Escritório › LGPD › …
 export function Trilha({ ids, porId, incluirUltimo = true }: { ids: string[]; porId: Map<string, Requisito>; incluirUltimo?: boolean }) {
   const mostrados = incluirUltimo ? ids : ids.slice(0, -1)
   return (
