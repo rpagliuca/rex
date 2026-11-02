@@ -837,6 +837,34 @@ paths:
         '400': { $ref: '#/components/responses/Erro' }
         '404': { $ref: '#/components/responses/Erro' }
         '409': { $ref: '#/components/responses/Erro' }
+  /sessoes/{id}/encerramento-de-orfa:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: a sessão (S-0001) ou a tarefa com sessão ativa (T-0001)
+        schema: { type: string }
+    post:
+      operationId: encerrarSessaoOrfa
+      description: |
+        Encerra, sem o token, uma sessão ativa sem agente vivo, para a tarefa poder ganhar outra. O
+        servidor confere a orfandade e recusa com 409 se não puder prová-la (agente vivo, outra
+        máquina, humano, sessão sem chat, atividade recente). O agente não deixou resumo: o rex
+        escreve um que aponta o journal dela e mantém o resumo anterior de cada tarefa.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EncerramentoDeOrfa' }
+      responses:
+        '200':
+          description: Sessão encerrada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Sessao' }
+        '400': { $ref: '#/components/responses/Erro' }
+        '404': { $ref: '#/components/responses/Erro' }
+        '409': { $ref: '#/components/responses/Erro' }
   /sessoes/{id}/repasse:
     parameters:
       - $ref: '#/components/parameters/Id'
@@ -1237,6 +1265,12 @@ components:
     TipoAgente:
       type: string
       enum: [ia, humano]
+    EncerramentoDeOrfa:
+      type: object
+      properties:
+        observacao:
+          type: string
+          description: o que quem encerra sabe a mais sobre onde o trabalho parou
     MotivoEncerramento:
       type: string
       enum: [fim_do_trabalho, troca_de_agente]

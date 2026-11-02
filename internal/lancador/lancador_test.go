@@ -362,3 +362,38 @@ func TestArgumentosSoDoAgenteDaTarefa(t *testing.T) {
 		t.Fatalf("outra tarefa recebeu os argumentos: %s", ultima)
 	}
 }
+
+func TestConferirOrfa(t *testing.T) {
+	l, tmux := novoLancador(t)
+	l.maquina = "laptop"
+	var pids []int
+	l.processosDoChat = func(string) []int { return pids }
+	l.paiDe = func(int) int { return 0 }
+	chat := "chat-1"
+	x := api.Sessao{Id: "S-0001", TipoAgente: api.Ia, Servidor: "laptop", Chat: &chat, Tarefas: []string{"T-0001"}}
+
+	if err := l.ConferirOrfa(x); err != nil {
+		t.Fatalf("sem tmux nem processo é órfã: %v", err)
+	}
+	recusas := map[string]func(api.Sessao) api.Sessao{
+		"humano":  func(x api.Sessao) api.Sessao { x.TipoAgente = api.Humano; return x },
+		"laptop2": func(x api.Sessao) api.Sessao { x.Servidor = "laptop2"; return x },
+		"chat":    func(x api.Sessao) api.Sessao { x.Chat = nil; return x },
+	}
+	for motivo, mudar := range recusas {
+		if err := l.ConferirOrfa(mudar(x)); err == nil || !strings.Contains(err.Error(), motivo) {
+			t.Fatalf("%s: %v", motivo, err)
+		}
+	}
+	// Chat aberto fora do tmux: sem painel, mas com processo.
+	pids = []int{4242}
+	if err := l.ConferirOrfa(x); err == nil || !strings.Contains(err.Error(), "4242") {
+		t.Fatalf("processo do chat: %v", err)
+	}
+	pids = nil
+	// Agente lançado: o tmux dele carrega a tarefa.
+	tmux.sessoes["deploy"] = "T-0001"
+	if err := l.ConferirOrfa(x); err == nil || !strings.Contains(err.Error(), "tmux deploy") {
+		t.Fatalf("tmux da tarefa: %v", err)
+	}
+}

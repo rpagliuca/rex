@@ -37,9 +37,17 @@ for skill in skills/*/; do ln -sfn "$PWD/$skill" ~/.claude/skills/"$(basename "$
 
 Ferramentas: `obter_tarefa`, `consultar_tarefas`, `criar_tarefa`, `alterar_tarefa`,
 `historico_da_tarefa`, `iniciar_sessao`, `sessao_atual`, `vincular_tarefa`, `atualizar_journal`, `renomear_sessao`,
-`encerrar_sessao`, `repassar_sessao`, `listar_eventos`, `buscar_requisitos`, `arvore_de_requisitos`, `obter_requisito`, `criar_requisito`,
+`encerrar_sessao`, `encerrar_sessao_orfa`, `repassar_sessao`, `listar_eventos`, `buscar_requisitos`, `arvore_de_requisitos`, `obter_requisito`, `criar_requisito`,
 `alterar_requisito`, `derivar_requisito`, `marcar_obsoleto`, `vincular_requisito`, `registrar_execucao`, `listar_componentes`, `criar_componente`, `vincular_componente`, `opcoes_do_lancador`, `lancar_agente`, `recursos_da_maquina`, `descer_item`, `agentes_ativos`, `listar_templates`, `instanciar_template`, `listar_origens`, `criar_origem`, `criar_lembrete`, `proximos_lembretes`, `adiar_lembrete`, `alterar_lembrete`, `confirmar_lembrete`, `cancelar_lembrete`, `aguardar_resposta`, `retomar_trabalho`,
 `voz_panorama`, `voz_situacao`, `voz_enviar`, `voz_tecla`.
+
+Sessão órfã é a que continua ativa sem agente vivo (depois de um reboot, por exemplo) e, enquanto
+existe, impede a tarefa de ganhar outra. `encerrar_sessao_orfa` (`POST /sessoes/{id}/encerramento-de-orfa`,
+com a sessão ou a tarefa presa nela) a encerra sem o token, e quem prova a orfandade é o servidor:
+recusa com 409 se houver tmux do agente ou processo com o chat dela, se ela for de humano, de outra
+máquina ou não tiver chat, ou se teve atividade nos últimos 2 minutos (o lançador abre a sessão antes
+de subir o tmux). O agente não deixou resumo: o da tarefa ganha um aviso com o journal da sessão e a
+observação opcional, e mantém o que tinha. O status da tarefa não muda; depois, `lancar_agente`.
 
 ## Lançador de agentes (opcional)
 

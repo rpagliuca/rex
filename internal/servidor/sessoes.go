@@ -4,8 +4,11 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
+	"os"
 	"strings"
+	"time"
 
 	"github.com/rpagliuca/rex/api"
 )
@@ -386,6 +389,120 @@ func (s *Servidor) EncerrarSessaoManualmente(w http.ResponseWriter, r *http.Requ
 		s.avisarEncerramento(x)
 	}
 	responder(w, http.StatusOK, x)
+}
+
+// esperaDaOrfa é quanto uma sessão fica quieta antes de poder ser chamada de órfã. O lançador abre a
+// sessão antes de subir o tmux, então um agente recém-lançado ainda não aparece em lugar nenhum.
+var esperaDaOrfa = 2 * time.Minute
+
+// EncerrarSessaoOrfa encerra sem o token a sessão ativa cujo agente não está vivo, para a tarefa
+// poder ganhar outra. É a prova da orfandade, feita aqui e não por quem chama, que protege a sessão
+// de um agente vivo; a conferência roda fora da transação, porque o banco tem uma única conexão.
+func (s *Servidor) EncerrarSessaoOrfa(w http.ResponseWriter, r *http.Request, id string) {
+	var pedido api.EncerramentoDeOrfa
+	if err := ler(r, &pedido); err != nil {
+		responderErro(w, err)
+		return
+	}
+	atual, n, err := s.sessaoPorId(id)
+	if err != nil {
+		responderErro(w, err)
+		return
+	}
+	if err := s.conferirOrfa(atual); err != nil {
+		responderErro(w, err)
+		return
+	}
+	var x api.Sessao
+	err = s.emTransacao(func(tx *sql.Tx) error {
+		quem, err := autor(tx, r)
+		if err != nil {
+			return err
+		}
+		if err := s.encerrarOrfa(tx, n, pedido, quem); err != nil {
+			return err
+		}
+		x, err = carregarSessao(tx, n)
+		return err
+	})
+	if err != nil {
+		responderErro(w, err)
+		return
+	}
+	s.avisarEncerramento(x)
+	responder(w, http.StatusOK, x)
+}
+
+// conferirOrfa recusa a sessão que não dá para provar que está órfã.
+func (s *Servidor) conferirOrfa(x api.Sessao) error {
+	if x.Status != api.Ativa {
+		return falha(http.StatusConflict, "a sessão %s já foi encerrada", x.Id)
+	}
+	if s.lancador == nil {
+		return falha(http.StatusConflict, "sem o lançador não dá para conferir se o agente da sessão %s está vivo", x.Id)
+	}
+	if err := s.lancador.ConferirOrfa(x); err != nil {
+		return falha(http.StatusConflict, "a sessão %s não foi encerrada: %v", x.Id, err)
+	}
+	ultima := x.IniciadaEm
+	if s.voz != nil {
+		if info, err := os.Stat(s.voz.Conversa(x)); err == nil && info.ModTime().After(ultima) {
+			ultima = info.ModTime()
+		}
+	}
+	if falta := esperaDaOrfa - s.agora().Sub(ultima); falta > 0 {
+		return falha(http.StatusConflict, "a sessão %s teve atividade há pouco e o agente pode estar subindo: tente de novo em %d s",
+			x.Id, int(falta.Seconds())+1)
+	}
+	return nil
+}
+
+// encerrarOrfa encerra a sessão com um resumo escrito pelo rex: o agente morreu sem deixar o dele, e
+// o resumo anterior de cada tarefa é a melhor pista do próximo agente, então fica depois do aviso.
+func (s *Servidor) encerrarOrfa(tx *sql.Tx, n int64, pedido api.EncerramentoDeOrfa, quem string) error {
+	atual, err := carregarSessao(tx, n)
+	if err != nil {
+		return err
+	}
+	if atual.Status != api.Ativa {
+		return falha(http.StatusConflict, "a sessão %s já foi encerrada", atual.Id)
+	}
+	aviso := fmt.Sprintf("A sessão %s ficou órfã: o agente parou sem escrever resumo, e o rex a encerrou. ", atual.Id)
+	if atual.Journal != nil {
+		aviso += "Leia o journal dela para saber onde o trabalho parou: " + *atual.Journal + "."
+	} else {
+		aviso += "Ela não registrou journal."
+	}
+	if pedido.Observacao != nil && !vazio(*pedido.Observacao) {
+		aviso += "\nObservação de quem encerrou: " + strings.TrimSpace(*pedido.Observacao)
+	}
+	if _, err := tx.Exec(`UPDATE sessoes SET resumo = ? WHERE id = ?`, aviso, n); err != nil {
+		return err
+	}
+	tarefas, err := tarefasDaSessao(tx, n, true)
+	if err != nil {
+		return err
+	}
+	for _, t := range tarefas {
+		tarefa, err := carregarTarefa(tx, t)
+		if err != nil {
+			return err
+		}
+		resumo := aviso
+		if !vazio(tarefa.Resumo) {
+			resumo += "\n\nResumo anterior, de antes desta sessão:\n" + tarefa.Resumo
+		}
+		if _, err := tx.Exec(`UPDATE tarefas SET resumo = ?, atualizada_em = ? WHERE id = ?`, resumo, s.momento(), t); err != nil {
+			return err
+		}
+		if err := s.registrarEvento(tx, quem, idTarefa(t), "resumo_sincronizado", map[string]any{"sessao": atual.Id}); err != nil {
+			return err
+		}
+	}
+	if err := s.encerrar(tx, n, api.Encerrada, api.FimDoTrabalho); err != nil {
+		return err
+	}
+	return s.registrarEvento(tx, quem, atual.Id, "sessao_encerrada", map[string]any{"motivo": api.FimDoTrabalho, "orfa": true})
 }
 
 // autorManual é o autor dos eventos feitos por um humano sem sessão, pelo frontend.

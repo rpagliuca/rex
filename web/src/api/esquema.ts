@@ -681,6 +681,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/sessoes/{id}/encerramento-de-orfa": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description a sessão (S-0001) ou a tarefa com sessão ativa (T-0001) */
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Encerra, sem o token, uma sessão ativa sem agente vivo, para a tarefa poder ganhar outra. O
+         *     servidor confere a orfandade e recusa com 409 se não puder prová-la (agente vivo, outra
+         *     máquina, humano, sessão sem chat, atividade recente). O agente não deixou resumo: o rex
+         *     escreve um que aponta o journal dela e mantém o resumo anterior de cada tarefa.
+         *      */
+        post: operations["encerrarSessaoOrfa"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/sessoes/{id}/repasse": {
         parameters: {
             query?: never;
@@ -998,6 +1022,10 @@ export interface components {
         StatusSessao: "ativa" | "encerrada" | "substituida";
         /** @enum {string} */
         TipoAgente: "ia" | "humano";
+        EncerramentoDeOrfa: {
+            /** @description o que quem encerra sabe a mais sobre onde o trabalho parou */
+            observacao?: string;
+        };
         /** @enum {string} */
         MotivoEncerramento: "fim_do_trabalho" | "troca_de_agente";
         Tarefa: {
@@ -3026,6 +3054,36 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["Encerramento"];
+            };
+        };
+        responses: {
+            /** @description Sessão encerrada */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Sessao"];
+                };
+            };
+            400: components["responses"]["Erro"];
+            404: components["responses"]["Erro"];
+            409: components["responses"]["Erro"];
+        };
+    };
+    encerrarSessaoOrfa: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description a sessão (S-0001) ou a tarefa com sessão ativa (T-0001) */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EncerramentoDeOrfa"];
             };
         };
         responses: {
