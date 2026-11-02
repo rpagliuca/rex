@@ -197,7 +197,7 @@ func TestConfiguracaoInvalida(t *testing.T) {
 	}
 	base := Config{URLBase: "https://x.ts.net", ClientID: "c", ClientSecretAmbiente: "SEGREDO", ChaveAmbiente: "CHAVE", Emails: []string{"a@b"}}
 	casos := map[string]func(*Config){
-		"http fora de localhost": func(c *Config) { c.URLBase = "http://100.111.55.118:8790" },
+		"http fora de localhost": func(c *Config) { c.URLBase = "http://100.64.0.10:8790" },
 		"sem client secret":      func(c *Config) { c.ClientSecretAmbiente = "NADA" },
 		"chave curta":            func(c *Config) { c.ChaveAmbiente = "CURTA" },
 		"sem e-mails":            func(c *Config) { c.Emails = nil },
