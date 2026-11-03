@@ -149,7 +149,7 @@ var descricoes = map[string]string{
 	"encerrar_sessao_orfa": "Encerra a sessão de trabalho que continua ativa sem agente vivo (depois de um reboot, por exemplo), para a tarefa poder ganhar outra: depois, lancar_agente. O rex confere o tmux e os processos do chat e recusa se não puder provar que o agente morreu; a recusa é a resposta, nunca a contorne. O resumo da tarefa ganha um aviso com o journal da sessão e mantém o que tinha; o status da tarefa não muda. sem_agente em voz_panorama só diz que não há tmux, não que está órfã.",
 	"recursos_da_maquina":  "Memória e CPU da máquina dos agentes, medidas agora (~2 s): RAM disponível e o mínimo para lançar agente, sessões do Claude Code abertas (com a RAM de cada uma e o que esperam do Rafael), os itens que se pode descer (descer_item) com o que cada um libera, containers do docker por projeto e os 15 maiores processos por RAM e por CPU (nome e pid). resumo traz o essencial em poucas linhas. Para \"cabe mais um agente?\", \"o que está pesando?\" ou um processo preso consumindo CPU.",
 	"criar_lembrete":       "Agenda um lembrete para o Rafael, solto ou ligado a uma tarefa ou requisito. A precisão é obrigatória e vem do que o Rafael disse: hora só quando ele deu data e hora explícitas (\"às 14h\", \"9:30\"); turno para \"de manhã\", \"no almoço\", \"à tarde\", \"à noite\"; dia para \"amanhã\", \"sexta\", \"dia 30\" sem hora; semana para \"semana que vem\", \"na semana do dia 12\"; mes para \"em abril\", \"mês que vem\". Nunca invente uma hora: fora de hora, mande qualquer hora dentro da janela e o rex a troca pelo início dela. Só hora toca alarme; turno, dia, semana e mês são avisados em lote, sem som. Preencha curto com a palavra-chave do compromisso (até 10 caracteres, como ballet ou dentista): é o que cabe na ilha do iPhone.",
-	"proximos_lembretes":   "Lembretes que pedem atenção: os disparados e os que vencem nas próximas horas (padrão 24), com a hora de agora (agora), para calcular o quando de um lembrete novo. Cada um traz quando (início da janela), fim (fim da janela, fora da precisão hora) e situacao, e a lista vem nesta ordem: vencido (a janela já acabou: é o atrasado), na_janela (a janela está aberta: é para fazer no período corrente, não está atrasado) e futuro. Disparado não é vencido: o status disparado só diz que o aviso saiu. Turno, dia, semana e mês disparam no início da janela (o dia às 8h, a semana na segunda às 8h, o mês no dia 1 às 8h) e valem até o fim dela: um lembrete de dia disparado hoje às 8h é para hoje, e um de semana disparado na segunda é para esta semana; só fica vencido depois que o dia, a semana ou o mês acabam sem confirmação. Na precisão hora não há janela: vencido assim que a hora passa.",
+	"proximos_lembretes":   "Lembretes que pedem atenção: os disparados e os que vencem nas próximas horas (padrão 24), com a hora de agora (agora), para calcular o quando de um lembrete novo. Cada um traz a organização, quando (início da janela), fim (fim da janela, fora da precisão hora) e situacao, e a lista vem nesta ordem: vencido (a janela já acabou: é o atrasado), na_janela (a janela está aberta: é para fazer no período corrente, não está atrasado) e futuro. Disparado não é vencido: o status disparado só diz que o aviso saiu. Turno, dia, semana e mês disparam no início da janela (o dia às 8h, a semana na segunda às 8h, o mês no dia 1 às 8h) e valem até o fim dela: um lembrete de dia disparado hoje às 8h é para hoje, e um de semana disparado na segunda é para esta semana; só fica vencido depois que o dia, a semana ou o mês acabam sem confirmação. Na precisão hora não há janela: vencido assim que a hora passa.",
 	"adiar_lembrete":       "Reagenda um lembrete para daqui a N minutos ou para uma hora (RFC 3339). Para pedidos em lote (\"os de ontem, joga para amanhã\"), adie só os de situacao vencido em proximos_lembretes. Lembrete de semana ou mês com a janela ainda aberta é recusado, porque ainda vale: só com mesmo_na_janela, quando o Rafael pediu aquele lembrete pelo nome.",
 	"alterar_lembrete":     "Corrige texto, palavra-chave (curto), hora, precisão, organização ou ligações de um lembrete, mantendo o id: nunca cancele e recrie para isso. Só os campos informados mudam; tarefa ou requisito vazio remove a ligação. Confirmado ou cancelado não muda.",
 	"confirmar_lembrete":   "Marca o lembrete como visto: ele para de pedir atenção. Só quando o Rafael disser que viu ou fez.",
@@ -905,14 +905,15 @@ type NovoLembrete struct {
 }
 
 type ResumoDeLembrete struct {
-	Id       string `json:"id"`
-	Texto    string `json:"texto"`
-	Curto    string `json:"curto,omitempty"`
-	Quando   string `json:"quando"`
-	Precisao string `json:"precisao"`
-	Fim      string `json:"fim,omitempty"`
-	Situacao string `json:"situacao" jsonschema:"vencido (a janela acabou sem confirmação: atrasado; na precisão hora, a hora passou), na_janela (a janela está aberta: para fazer no período corrente, não atrasado, mesmo disparado) ou futuro"`
-	Status   string `json:"status" jsonschema:"agendado, adiado, disparado (o aviso já saiu; não quer dizer atrasado: veja situacao), confirmado ou cancelado"`
+	Id          string `json:"id"`
+	Texto       string `json:"texto"`
+	Curto       string `json:"curto,omitempty"`
+	Organizacao string `json:"organizacao" jsonschema:"organização do lembrete, como Cartório, Yes ou Pessoal; vem sempre"`
+	Quando      string `json:"quando"`
+	Precisao    string `json:"precisao"`
+	Fim         string `json:"fim,omitempty"`
+	Situacao    string `json:"situacao" jsonschema:"vencido (a janela acabou sem confirmação: atrasado; na precisão hora, a hora passou), na_janela (a janela está aberta: para fazer no período corrente, não atrasado, mesmo disparado) ou futuro"`
+	Status      string `json:"status" jsonschema:"agendado, adiado, disparado (o aviso já saiu; não quer dizer atrasado: veja situacao), confirmado ou cancelado"`
 }
 
 type Lembretes struct {
@@ -968,7 +969,7 @@ func situacao(x api.Lembrete, agora time.Time) string {
 }
 
 func resumirLembrete(x api.Lembrete) ResumoDeLembrete {
-	r := ResumoDeLembrete{Id: x.Id, Texto: x.Texto, Quando: x.Quando.Format(time.RFC3339), Precisao: string(x.Precisao),
+	r := ResumoDeLembrete{Id: x.Id, Texto: x.Texto, Organizacao: x.Organizacao, Quando: x.Quando.Format(time.RFC3339), Precisao: string(x.Precisao),
 		Situacao: situacao(x, time.Now()), Status: string(x.Status)}
 	if x.Curto != nil {
 		r.Curto = *x.Curto
