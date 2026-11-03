@@ -363,7 +363,7 @@ func TestLembretesEEsperaPeloMCP(t *testing.T) {
 	}
 	var l ResumoDeLembrete
 	c.chamar("criar_lembrete", map[string]any{"texto": "ligar para o contador", "quando": quando, "precisao": "hora", "organizacao": "Exemplo", "tarefa": tarefa.Id}, &l)
-	if l.Id != "L-0001" || l.Status != "agendado" || l.Quando != quando || l.Precisao != "hora" {
+	if l.Id != "L-0001" || l.Status != "agendado" || l.Quando != quando || l.Precisao != "hora" || l.Organizacao != "Exemplo" {
 		t.Fatalf("lembrete: %+v", l)
 	}
 	var proximos Lembretes
@@ -372,8 +372,8 @@ func TestLembretesEEsperaPeloMCP(t *testing.T) {
 		t.Fatalf("fora da janela: %+v", proximos)
 	}
 	c.chamar("proximos_lembretes", map[string]any{}, &proximos)
-	if len(proximos.Lembretes) != 1 {
-		t.Fatalf("dentro da janela padrão: %+v", proximos)
+	if len(proximos.Lembretes) != 1 || proximos.Lembretes[0].Organizacao != "Exemplo" {
+		t.Fatalf("dentro da janela padrão, com a organização: %+v", proximos)
 	}
 	c.chamar("alterar_lembrete", map[string]any{"id": "L-0001", "texto": "ligar para o contador e retomar a tarefa"}, &l)
 	if l.Id != "L-0001" || l.Texto != "ligar para o contador e retomar a tarefa" || l.Status != "agendado" || l.Quando != quando {
