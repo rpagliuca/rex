@@ -956,6 +956,12 @@ paths:
         - name: tarefa
           in: query
           schema: { type: string }
+        - name: recorrentes
+          in: query
+          description: |
+            true: só as séries em andamento, uma linha por série (a ocorrência mais recente, que é a
+            que gera as seguintes), qualquer que seja o status; ignora `status`
+          schema: { type: boolean }
       responses:
         '200':
           description: Lembretes
@@ -1052,6 +1058,9 @@ paths:
       - $ref: '#/components/parameters/Id'
     post:
       operationId: cancelarLembrete
+      description: |
+        O lembrete não vale mais. Num recorrente, encerra a série: nenhuma ocorrência nova é gerada a
+        partir dele (as já geradas continuam). Para só pular uma ocorrência, confirme-a.
       responses:
         '200':
           description: Lembrete cancelado
@@ -1885,6 +1894,16 @@ components:
         integrações os avisam em lote, sem alarme.
       enum: [hora, turno, dia, semana, mes]
       x-enum-varnames: [PrecisaoHora, PrecisaoTurno, PrecisaoDia, PrecisaoSemana, PrecisaoMes]
+    RecorrenciaLembrete:
+      type: string
+      description: |
+        De quanto em quanto o lembrete se repete (vezes `intervalo`). Cada ocorrência é um lembrete
+        comum; a próxima é gerada quando a atual dispara ou é confirmada, contada a partir da âncora da
+        série (adiar uma ocorrência não desloca as seguintes; no mensal e no anual, o dia 31 ou 29/2
+        cai no último dia do mês). A recorrência não pode ser mais curta que a janela da precisão
+        (diária só com hora, turno ou dia; semanal até semana).
+      enum: [diaria, semanal, mensal, anual]
+      x-enum-varnames: [RecorrenciaDiaria, RecorrenciaSemanal, RecorrenciaMensal, RecorrenciaAnual]
     Lembrete:
       type: object
       required: [id, texto, quando, precisao, organizacao, status, autor, adiamentos, criado_em, atualizado_em]
@@ -1917,6 +1936,11 @@ components:
         adiamentos: { type: integer, description: 'Quantas vezes foi adiado' }
         confirmado_em: { type: string, format: date-time }
         link: { type: string, description: 'URL do lembrete no frontend, se o servidor conhece a base pública' }
+        recorrencia: { $ref: '#/components/schemas/RecorrenciaLembrete' }
+        intervalo: { type: integer, minimum: 1, description: 'Repete a cada N recorrências (a cada 2 semanas: semanal, 2); só nos recorrentes' }
+        serie: { type: string, example: L-0001, description: 'Primeiro lembrete da série; só nos que são ou foram recorrentes' }
+        ocorrencia: { type: integer, description: 'Posição desta ocorrência na série, a partir de 0 (volta a 0 quando a série é reancorada)' }
+        seguinte: { type: string, example: L-0002, description: 'A ocorrência seguinte, quando já gerada' }
         criado_em: { type: string, format: date-time }
         atualizado_em: { type: string, format: date-time }
     NovoLembrete:
@@ -1940,6 +1964,10 @@ components:
         organizacao: { type: string }
         tarefa: { type: string }
         requisito: { type: string }
+        recorrencia:
+          allOf: [{ $ref: '#/components/schemas/RecorrenciaLembrete' }]
+          description: 'Ausente: lembrete avulso. Presente: `quando` é a primeira ocorrência e a âncora da série'
+        intervalo: { type: integer, minimum: 1, description: 'Padrão: 1' }
     AlteracaoLembrete:
       type: object
       properties:
@@ -1952,6 +1980,14 @@ components:
         organizacao: { type: string }
         tarefa: { type: string, description: 'Vazio remove a ligação' }
         requisito: { type: string, description: 'Vazio remove a ligação' }
+        recorrencia:
+          type: string
+          description: |
+            diaria, semanal, mensal ou anual torna o lembrete recorrente (ou muda a recorrência); vazio
+            o torna avulso (a série acaba nele). Vale só para esta ocorrência e as que ela gerar: para
+            mudar uma série cuja próxima ocorrência já existe, altere a próxima. Mudar `quando`,
+            `precisao`, `recorrencia` ou `intervalo` de um recorrente reancora a série nesta ocorrência.
+        intervalo: { type: integer, minimum: 1 }
     Adiamento:
       type: object
       properties:

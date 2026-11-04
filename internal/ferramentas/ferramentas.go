@@ -127,6 +127,7 @@ func (f *Ferramentas) Servidor() *mcp.Server {
 	mcp.AddTool(s, &mcp.Tool{Name: "alterar_lembrete", Description: descricoes["alterar_lembrete"]}, f.alterarLembrete)
 	mcp.AddTool(s, &mcp.Tool{Name: "confirmar_lembrete", Description: descricoes["confirmar_lembrete"]}, f.confirmarLembrete)
 	mcp.AddTool(s, &mcp.Tool{Name: "cancelar_lembrete", Description: descricoes["cancelar_lembrete"]}, f.cancelarLembrete)
+	mcp.AddTool(s, &mcp.Tool{Name: "lembretes_recorrentes", Description: descricoes["lembretes_recorrentes"]}, f.lembretesRecorrentes)
 	mcp.AddTool(s, &mcp.Tool{Name: "aguardar_resposta", Description: "Avisa que a sessão deste chat entregou ou está bloqueada e espera o Rafael (aprovação, decisão, informação). Aparece nas pendências até retomar_trabalho ou o encerramento."}, f.aguardarResposta)
 	mcp.AddTool(s, &mcp.Tool{Name: "retomar_trabalho", Description: "Tira a sessão deste chat da espera: o Rafael respondeu e o trabalho continuou."}, f.retomarTrabalho)
 	mcp.AddTool(s, &mcp.Tool{Name: "voz_panorama", Description: "rex voz. As sessões ativas, cada uma com o que o agente faz agora (trabalhando, ocioso, pedindo_permissao, sem_agente), o que pediu ao Rafael (aguardando), quantas novidades ele não ouviu e o começo do último texto do agente; a tela e o texto inteiro vêm em voz_situacao. Responde \"quais sessões esperam meu input?\" numa chamada; não marca nada como ouvido."}, f.vozPanorama)
@@ -140,39 +141,41 @@ func (f *Ferramentas) Servidor() *mcp.Server {
 
 // descricoes são as das ferramentas que os dois servidores (o do agente e o conector) oferecem.
 var descricoes = map[string]string{
-	"obter_tarefa":         "Obtém uma tarefa, incluindo o resumo para retomar e a sessão ativa.",
-	"consultar_tarefas":    "Tarefas por status (um ou mais), organização, componente ou requisito; exige ao menos um filtro. Só id, título, status, organização, sessão ativa e o que ela espera do Rafael, da atualizada mais recente à mais antiga, até o limite (padrão 20, máximo 50); total diz quantas casaram e fora, quantas não vieram. Ex.: \"o que está em validação?\" é status [em_validacao]; \"o que tenho da Yes a fazer?\" é status [a_fazer] e organização Yes.",
-	"criar_tarefa":         "Cria uma tarefa, já ligada aos requisitos e componentes informados.",
-	"opcoes_do_lancador":   "Modelos e esforços que o lançador de agentes aceita, e os padrões.",
-	"lancar_agente":        "Sobe um agente novo (outro chat, em tmux) para trabalhar numa tarefa: põe a tarefa em andamento e abre a sessão de trabalho dele. Para delegar; nunca para a tarefa deste chat. Recusa tarefa com sessão ativa. Para parar o agente depois, mude o status da tarefa (alterar_tarefa). Antes de subir, mede a máquina: com menos RAM disponível que o mínimo, recusa com a medição (o que ocupa e as sessões que esperam o Rafael há mais tempo); diga isso a ele e só repita com forcar se ele mandar abrir assim mesmo.",
-	"descer_item":          "Desce um item de recursos_da_maquina (como steam, platform-simulation-environment ou agente-navegador) para liberar memória: pausa a tarefa dele, cujo agente encerra e leva os filhos junto, ou roda o comando de fechar. Só com o sim do Rafael para aquele item, e nunca para fechar algo que outro agente esteja usando: a recusa (lock com dono, por exemplo) é a resposta, diga-a a ele. Subir não tem ferramenta: é lancar_agente ou o jeito de sempre de cada coisa.",
-	"encerrar_sessao_orfa": "Encerra a sessão de trabalho que continua ativa sem agente vivo (depois de um reboot, por exemplo), para a tarefa poder ganhar outra: depois, lancar_agente. O rex confere o tmux e os processos do chat e recusa se não puder provar que o agente morreu; a recusa é a resposta, nunca a contorne. O resumo da tarefa ganha um aviso com o journal da sessão e mantém o que tinha; o status da tarefa não muda. sem_agente em voz_panorama só diz que não há tmux, não que está órfã.",
-	"recursos_da_maquina":  "Memória e CPU da máquina dos agentes, medidas agora (~2 s): RAM disponível e o mínimo para lançar agente, sessões do Claude Code abertas (com a RAM de cada uma e o que esperam do Rafael), os itens que se pode descer (descer_item) com o que cada um libera, containers do docker por projeto e os 15 maiores processos por RAM e por CPU (nome e pid). resumo traz o essencial em poucas linhas. Para \"cabe mais um agente?\", \"o que está pesando?\" ou um processo preso consumindo CPU.",
-	"criar_lembrete":       "Agenda um lembrete para o Rafael, solto ou ligado a uma tarefa ou requisito. A precisão é obrigatória e vem do que o Rafael disse: hora só quando ele deu data e hora explícitas (\"às 14h\", \"9:30\"); turno para \"de manhã\", \"no almoço\", \"à tarde\", \"à noite\"; dia para \"amanhã\", \"sexta\", \"dia 30\" sem hora; semana para \"semana que vem\", \"na semana do dia 12\"; mes para \"em abril\", \"mês que vem\". Nunca invente uma hora: fora de hora, mande qualquer hora dentro da janela e o rex a troca pelo início dela. Só hora toca alarme; turno, dia, semana e mês são avisados em lote, sem som. Preencha curto com a palavra-chave do compromisso (até 10 caracteres, como ballet ou dentista): é o que cabe na ilha do iPhone.",
-	"proximos_lembretes":   "Lembretes que pedem atenção: os disparados e os que vencem nas próximas horas (padrão 24), com a hora de agora (agora), para calcular o quando de um lembrete novo. Cada um traz a organização, quando (início da janela), fim (fim da janela, fora da precisão hora) e situacao, e a lista vem nesta ordem: vencido (a janela já acabou: é o atrasado), na_janela (a janela está aberta: é para fazer no período corrente, não está atrasado) e futuro. Disparado não é vencido: o status disparado só diz que o aviso saiu. Turno, dia, semana e mês disparam no início da janela (o dia às 8h, a semana na segunda às 8h, o mês no dia 1 às 8h) e valem até o fim dela: um lembrete de dia disparado hoje às 8h é para hoje, e um de semana disparado na segunda é para esta semana; só fica vencido depois que o dia, a semana ou o mês acabam sem confirmação. Na precisão hora não há janela: vencido assim que a hora passa.",
-	"adiar_lembrete":       "Reagenda um lembrete para daqui a N minutos ou para uma hora (RFC 3339). Para pedidos em lote (\"os de ontem, joga para amanhã\"), adie só os de situacao vencido em proximos_lembretes. Lembrete de semana ou mês com a janela ainda aberta é recusado, porque ainda vale: só com mesmo_na_janela, quando o Rafael pediu aquele lembrete pelo nome.",
-	"alterar_lembrete":     "Corrige texto, palavra-chave (curto), hora, precisão, organização ou ligações de um lembrete, mantendo o id: nunca cancele e recrie para isso. Só os campos informados mudam; tarefa ou requisito vazio remove a ligação. Confirmado ou cancelado não muda.",
-	"confirmar_lembrete":   "Marca o lembrete como visto: ele para de pedir atenção. Só quando o Rafael disser que viu ou fez.",
-	"cancelar_lembrete":    "Cancela um lembrete que não vale mais. Só quando o Rafael disser que não vale mais; para mudar texto, hora ou ligações, alterar_lembrete.",
+	"obter_tarefa":          "Obtém uma tarefa, incluindo o resumo para retomar e a sessão ativa.",
+	"consultar_tarefas":     "Tarefas por status (um ou mais), organização, componente ou requisito; exige ao menos um filtro. Só id, título, status, organização, sessão ativa e o que ela espera do Rafael, da atualizada mais recente à mais antiga, até o limite (padrão 20, máximo 50); total diz quantas casaram e fora, quantas não vieram. Ex.: \"o que está em validação?\" é status [em_validacao]; \"o que tenho da Yes a fazer?\" é status [a_fazer] e organização Yes.",
+	"criar_tarefa":          "Cria uma tarefa, já ligada aos requisitos e componentes informados.",
+	"opcoes_do_lancador":    "Modelos e esforços que o lançador de agentes aceita, e os padrões.",
+	"lancar_agente":         "Sobe um agente novo (outro chat, em tmux) para trabalhar numa tarefa: põe a tarefa em andamento e abre a sessão de trabalho dele. Para delegar; nunca para a tarefa deste chat. Recusa tarefa com sessão ativa. Para parar o agente depois, mude o status da tarefa (alterar_tarefa). Antes de subir, mede a máquina: com menos RAM disponível que o mínimo, recusa com a medição (o que ocupa e as sessões que esperam o Rafael há mais tempo); diga isso a ele e só repita com forcar se ele mandar abrir assim mesmo.",
+	"descer_item":           "Desce um item de recursos_da_maquina (como steam, platform-simulation-environment ou agente-navegador) para liberar memória: pausa a tarefa dele, cujo agente encerra e leva os filhos junto, ou roda o comando de fechar. Só com o sim do Rafael para aquele item, e nunca para fechar algo que outro agente esteja usando: a recusa (lock com dono, por exemplo) é a resposta, diga-a a ele. Subir não tem ferramenta: é lancar_agente ou o jeito de sempre de cada coisa.",
+	"encerrar_sessao_orfa":  "Encerra a sessão de trabalho que continua ativa sem agente vivo (depois de um reboot, por exemplo), para a tarefa poder ganhar outra: depois, lancar_agente. O rex confere o tmux e os processos do chat e recusa se não puder provar que o agente morreu; a recusa é a resposta, nunca a contorne. O resumo da tarefa ganha um aviso com o journal da sessão e mantém o que tinha; o status da tarefa não muda. sem_agente em voz_panorama só diz que não há tmux, não que está órfã.",
+	"recursos_da_maquina":   "Memória e CPU da máquina dos agentes, medidas agora (~2 s): RAM disponível e o mínimo para lançar agente, sessões do Claude Code abertas (com a RAM de cada uma e o que esperam do Rafael), os itens que se pode descer (descer_item) com o que cada um libera, containers do docker por projeto e os 15 maiores processos por RAM e por CPU (nome e pid). resumo traz o essencial em poucas linhas. Para \"cabe mais um agente?\", \"o que está pesando?\" ou um processo preso consumindo CPU.",
+	"criar_lembrete":        "Agenda um lembrete para o Rafael, solto ou ligado a uma tarefa ou requisito. A precisão é obrigatória e vem do que o Rafael disse: hora só quando ele deu data e hora explícitas (\"às 14h\", \"9:30\"); turno para \"de manhã\", \"no almoço\", \"à tarde\", \"à noite\"; dia para \"amanhã\", \"sexta\", \"dia 30\" sem hora; semana para \"semana que vem\", \"na semana do dia 12\"; mes para \"em abril\", \"mês que vem\". Nunca invente uma hora: fora de hora, mande qualquer hora dentro da janela e o rex a troca pelo início dela. Só hora toca alarme; turno, dia, semana e mês são avisados em lote, sem som. Preencha curto com a palavra-chave do compromisso (até 10 caracteres, como ballet ou dentista): é o que cabe na ilha do iPhone. Para \"todo dia 1º\", \"toda segunda\", \"todo ano\", recorrencia (diaria, semanal, mensal ou anual, com intervalo para \"a cada 2 semanas\"): quando é a primeira ocorrência, e cada uma é um lembrete comum; a próxima sai sozinha quando a atual dispara ou é confirmada.",
+	"proximos_lembretes":    "Lembretes que pedem atenção: os disparados e os que vencem nas próximas horas (padrão 24), com a hora de agora (agora), para calcular o quando de um lembrete novo. Cada um traz a organização, quando (início da janela), fim (fim da janela, fora da precisão hora) e situacao, e a lista vem nesta ordem: vencido (a janela já acabou: é o atrasado), na_janela (a janela está aberta: é para fazer no período corrente, não está atrasado) e futuro. Disparado não é vencido: o status disparado só diz que o aviso saiu. Turno, dia, semana e mês disparam no início da janela (o dia às 8h, a semana na segunda às 8h, o mês no dia 1 às 8h) e valem até o fim dela: um lembrete de dia disparado hoje às 8h é para hoje, e um de semana disparado na segunda é para esta semana; só fica vencido depois que o dia, a semana ou o mês acabam sem confirmação. Na precisão hora não há janela: vencido assim que a hora passa.",
+	"adiar_lembrete":        "Reagenda um lembrete para daqui a N minutos ou para uma hora (RFC 3339). Para pedidos em lote (\"os de ontem, joga para amanhã\"), adie só os de situacao vencido em proximos_lembretes. Lembrete de semana ou mês com a janela ainda aberta é recusado, porque ainda vale: só com mesmo_na_janela, quando o Rafael pediu aquele lembrete pelo nome.",
+	"alterar_lembrete":      "Corrige texto, palavra-chave (curto), hora, precisão, organização, ligações ou recorrência de um lembrete, mantendo o id: nunca cancele e recrie para isso. Só os campos informados mudam; tarefa ou requisito vazio remove a ligação; recorrencia torna recorrente (ou muda), vazia torna avulso. Num recorrente, a mudança vale para ele e as ocorrências que ele ainda gerar: se a próxima já existe (seguinte), altere a próxima, que lembretes_recorrentes mostra. Confirmado ou cancelado não muda.",
+	"confirmar_lembrete":    "Marca o lembrete como visto: ele para de pedir atenção. Só quando o Rafael disser que viu ou fez.",
+	"cancelar_lembrete":     "Cancela um lembrete que não vale mais. Só quando o Rafael disser que não vale mais; para mudar texto, hora ou ligações, alterar_lembrete. Num recorrente, encerra a série (cancele a ocorrência que lembretes_recorrentes mostra); para pular só uma ocorrência, confirme-a.",
+	"lembretes_recorrentes": "As séries de lembretes recorrentes em andamento, uma por série: a ocorrência mais recente (a que gera as seguintes), com recorrencia, intervalo, serie (o primeiro lembrete) e quando. É nela que se altera ou cancela a série.",
 }
 
 // anotacoesDoConector dizem ao app do Claude o que cada ferramenta faz, para ele não pedir
 // confirmação a cada leitura.
 var anotacoesDoConector = map[string]*mcp.ToolAnnotations{
-	"obter_tarefa":         {ReadOnlyHint: true, Title: "Ver uma tarefa"},
-	"consultar_tarefas":    {ReadOnlyHint: true, Title: "Consultar tarefas"},
-	"criar_tarefa":         {DestructiveHint: ptr(false), Title: "Criar tarefa"},
-	"opcoes_do_lancador":   {ReadOnlyHint: true, Title: "Modelos e esforços do lançador"},
-	"lancar_agente":        {DestructiveHint: ptr(false), Title: "Abrir sessão de trabalho"},
-	"recursos_da_maquina":  {ReadOnlyHint: true, Title: "Memória e CPU da máquina"},
-	"descer_item":          {DestructiveHint: ptr(true), Title: "Fechar algo para liberar memória"},
-	"encerrar_sessao_orfa": {DestructiveHint: ptr(true), Title: "Encerrar sessão sem agente vivo"},
-	"criar_lembrete":       {DestructiveHint: ptr(false), Title: "Criar lembrete"},
-	"proximos_lembretes":   {ReadOnlyHint: true, Title: "Próximos lembretes"},
-	"adiar_lembrete":       {DestructiveHint: ptr(false), Title: "Adiar lembrete"},
-	"alterar_lembrete":     {DestructiveHint: ptr(false), IdempotentHint: true, Title: "Alterar lembrete"},
-	"confirmar_lembrete":   {DestructiveHint: ptr(false), IdempotentHint: true, Title: "Confirmar lembrete"},
-	"cancelar_lembrete":    {DestructiveHint: ptr(true), IdempotentHint: true, Title: "Cancelar lembrete"},
+	"obter_tarefa":          {ReadOnlyHint: true, Title: "Ver uma tarefa"},
+	"consultar_tarefas":     {ReadOnlyHint: true, Title: "Consultar tarefas"},
+	"criar_tarefa":          {DestructiveHint: ptr(false), Title: "Criar tarefa"},
+	"opcoes_do_lancador":    {ReadOnlyHint: true, Title: "Modelos e esforços do lançador"},
+	"lancar_agente":         {DestructiveHint: ptr(false), Title: "Abrir sessão de trabalho"},
+	"recursos_da_maquina":   {ReadOnlyHint: true, Title: "Memória e CPU da máquina"},
+	"descer_item":           {DestructiveHint: ptr(true), Title: "Fechar algo para liberar memória"},
+	"encerrar_sessao_orfa":  {DestructiveHint: ptr(true), Title: "Encerrar sessão sem agente vivo"},
+	"criar_lembrete":        {DestructiveHint: ptr(false), Title: "Criar lembrete"},
+	"proximos_lembretes":    {ReadOnlyHint: true, Title: "Próximos lembretes"},
+	"adiar_lembrete":        {DestructiveHint: ptr(false), Title: "Adiar lembrete"},
+	"alterar_lembrete":      {DestructiveHint: ptr(false), IdempotentHint: true, Title: "Alterar lembrete"},
+	"confirmar_lembrete":    {DestructiveHint: ptr(false), IdempotentHint: true, Title: "Confirmar lembrete"},
+	"cancelar_lembrete":     {DestructiveHint: ptr(true), IdempotentHint: true, Title: "Cancelar lembrete"},
+	"lembretes_recorrentes": {ReadOnlyHint: true, Title: "Lembretes recorrentes"},
 }
 
 func doConector(nome string) *mcp.Tool {
@@ -188,7 +191,7 @@ func (f *Ferramentas) ServidorDoConector() *mcp.Server {
 			"\"Quais sessões esperam meu input?\": voz_panorama; esperam as com aguardando, as em pedindo_permissao e as ociosas com nao_ouvidas. " +
 			"\"O que a do deploy disse?\": voz_situacao e resuma as novidades. \"Diz pra ela…\": voz_enviar com a frase como ele disse, " +
 			"depois voz_situacao com esperar_segundos 12 para contar a resposta. " +
-			"Lembretes você mesmo gerencia (proximos_lembretes, criar_lembrete, alterar_lembrete, adiar_lembrete, confirmar_lembrete, cancelar_lembrete): " +
+			"Lembretes você mesmo gerencia (proximos_lembretes, criar_lembrete, alterar_lembrete, adiar_lembrete, confirmar_lembrete, cancelar_lembrete, lembretes_recorrentes): " +
 			"\"o que tenho amanhã?\" é proximos_lembretes com horas 48, \"esta semana\" 168; a precisão sai das palavras dele, nunca invente uma hora; " +
 			"para criar, calcule o quando a partir do agora de proximos_lembretes; depois de criar ou alterar, diga o que ficou gravado (o rex põe a hora no início da janela). " +
 			"Disparado não é vencido: atrasado é só o de situacao vencido; o de dia disparado hoje às 8h é para hoje e os de semana e mês disparam na segunda ou no dia 1 e valem até o fim da semana ou do mês (na_janela), então \"os atrasados\" ou \"os de ontem\" nunca os incluem. " +
@@ -230,6 +233,7 @@ func (f *Ferramentas) ServidorDoConector() *mcp.Server {
 	mcp.AddTool(s, doConector("adiar_lembrete"), f.adiarLembrete)
 	mcp.AddTool(s, doConector("confirmar_lembrete"), f.confirmarLembrete)
 	mcp.AddTool(s, doConector("cancelar_lembrete"), f.cancelarLembrete)
+	mcp.AddTool(s, doConector("lembretes_recorrentes"), f.lembretesRecorrentes)
 	mcp.AddTool(s, doConector("consultar_tarefas"), f.consultarTarefas)
 	mcp.AddTool(s, doConector("obter_tarefa"), f.obterTarefa)
 	mcp.AddTool(s, doConector("criar_tarefa"), f.criarTarefa)
@@ -902,6 +906,8 @@ type NovoLembrete struct {
 	Organizacao string `json:"organizacao" jsonschema:"Cartório, Yes ou Pessoal (ou a da instalação)"`
 	Tarefa      string `json:"tarefa,omitempty" jsonschema:"tarefa ligada, como T-0001"`
 	Requisito   string `json:"requisito,omitempty" jsonschema:"requisito ligado, como R-0001"`
+	Recorrencia string `json:"recorrencia,omitempty" jsonschema:"só para lembrete que se repete: diaria, semanal, mensal ou anual (todo dia 1º: mensal com quando no dia 1); não pode ser mais curta que a precisão"`
+	Intervalo   int    `json:"intervalo,omitempty" jsonschema:"repete a cada N recorrências (a cada 2 semanas: semanal e 2); padrão 1"`
 }
 
 type ResumoDeLembrete struct {
@@ -914,6 +920,10 @@ type ResumoDeLembrete struct {
 	Fim         string `json:"fim,omitempty"`
 	Situacao    string `json:"situacao" jsonschema:"vencido (a janela acabou sem confirmação: atrasado; na precisão hora, a hora passou), na_janela (a janela está aberta: para fazer no período corrente, não atrasado, mesmo disparado) ou futuro"`
 	Status      string `json:"status" jsonschema:"agendado, adiado, disparado (o aviso já saiu; não quer dizer atrasado: veja situacao), confirmado ou cancelado"`
+	Recorrencia string `json:"recorrencia,omitempty" jsonschema:"diaria, semanal, mensal ou anual; ausente no avulso"`
+	Intervalo   int    `json:"intervalo,omitempty"`
+	Serie       string `json:"serie,omitempty" jsonschema:"primeiro lembrete da série"`
+	Seguinte    string `json:"seguinte,omitempty" jsonschema:"a próxima ocorrência, quando já gerada"`
 }
 
 type Lembretes struct {
@@ -943,6 +953,8 @@ type AlteracaoDeLembrete struct {
 	Organizacao string  `json:"organizacao,omitempty" jsonschema:"nova organização"`
 	Tarefa      *string `json:"tarefa,omitempty" jsonschema:"tarefa ligada, como T-0001; vazio remove a ligação"`
 	Requisito   *string `json:"requisito,omitempty" jsonschema:"requisito ligado, como R-0001; vazio remove a ligação"`
+	Recorrencia *string `json:"recorrencia,omitempty" jsonschema:"diaria, semanal, mensal ou anual torna recorrente (ancorado no quando deste lembrete); vazio torna avulso"`
+	Intervalo   int     `json:"intervalo,omitempty" jsonschema:"repete a cada N recorrências"`
 }
 
 type Espera struct {
@@ -977,6 +989,15 @@ func resumirLembrete(x api.Lembrete) ResumoDeLembrete {
 	if x.Fim != nil {
 		r.Fim = x.Fim.In(x.Quando.Location()).Format(time.RFC3339)
 	}
+	if x.Recorrencia != nil {
+		r.Recorrencia, r.Intervalo = string(*x.Recorrencia), *x.Intervalo
+	}
+	if x.Serie != nil {
+		r.Serie = *x.Serie
+	}
+	if x.Seguinte != nil {
+		r.Seguinte = *x.Seguinte
+	}
 	return r
 }
 
@@ -997,10 +1018,18 @@ func (f *Ferramentas) criarLembrete(ctx context.Context, _ *mcp.CallToolRequest,
 		return nil, ResumoDeLembrete{}, fmt.Errorf("precisao: informe hora, turno, dia, semana ou mes, conforme o que o Rafael disse")
 	}
 	precisao := api.PrecisaoLembrete(in.Precisao)
-	var x api.Lembrete
-	resp, err := f.cliente.CriarLembrete(ctx, api.NovoLembrete{
+	novo := api.NovoLembrete{
 		Texto: in.Texto, Curto: opcional(in.Curto), Quando: quando, Precisao: &precisao, Organizacao: in.Organizacao, Tarefa: opcional(in.Tarefa), Requisito: opcional(in.Requisito),
-	}, f.autorizar)
+	}
+	if in.Recorrencia != "" {
+		r := api.RecorrenciaLembrete(in.Recorrencia)
+		novo.Recorrencia = &r
+	}
+	if in.Intervalo > 0 {
+		novo.Intervalo = &in.Intervalo
+	}
+	var x api.Lembrete
+	resp, err := f.cliente.CriarLembrete(ctx, novo, f.autorizar)
 	if err := decodificar(resp, err, &x); err != nil {
 		return nil, ResumoDeLembrete{}, err
 	}
@@ -1060,7 +1089,10 @@ func (f *Ferramentas) adiarLembrete(ctx context.Context, _ *mcp.CallToolRequest,
 }
 
 func (f *Ferramentas) alterarLembrete(ctx context.Context, _ *mcp.CallToolRequest, in AlteracaoDeLembrete) (*mcp.CallToolResult, ResumoDeLembrete, error) {
-	a := api.AlteracaoLembrete{Texto: opcional(in.Texto), Curto: in.Curto, Organizacao: opcional(in.Organizacao), Tarefa: in.Tarefa, Requisito: in.Requisito}
+	a := api.AlteracaoLembrete{Texto: opcional(in.Texto), Curto: in.Curto, Organizacao: opcional(in.Organizacao), Tarefa: in.Tarefa, Requisito: in.Requisito, Recorrencia: in.Recorrencia}
+	if in.Intervalo > 0 {
+		a.Intervalo = &in.Intervalo
+	}
 	if in.Quando != "" {
 		quando, err := lerHora("quando", in.Quando)
 		if err != nil {
@@ -1096,6 +1128,24 @@ func (f *Ferramentas) cancelarLembrete(ctx context.Context, _ *mcp.CallToolReque
 		return nil, ResumoDeLembrete{}, err
 	}
 	return nil, resumirLembrete(x), nil
+}
+
+type LembretesRecorrentes struct {
+	Lembretes []ResumoDeLembrete `json:"lembretes"`
+}
+
+func (f *Ferramentas) lembretesRecorrentes(ctx context.Context, _ *mcp.CallToolRequest, _ Vazio) (*mcp.CallToolResult, LembretesRecorrentes, error) {
+	sim := true
+	var lista []api.Lembrete
+	resp, err := f.cliente.ListarLembretes(ctx, &api.ListarLembretesParams{Recorrentes: &sim})
+	if err := decodificar(resp, err, &lista); err != nil {
+		return nil, LembretesRecorrentes{}, err
+	}
+	out := LembretesRecorrentes{Lembretes: []ResumoDeLembrete{}}
+	for _, x := range lista {
+		out.Lembretes = append(out.Lembretes, resumirLembrete(x))
+	}
+	return nil, out, nil
 }
 
 func (f *Ferramentas) aguardarResposta(ctx context.Context, _ *mcp.CallToolRequest, in Espera) (*mcp.CallToolResult, api.Sessao, error) {
