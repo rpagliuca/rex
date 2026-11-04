@@ -852,6 +852,9 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** @description O lembrete não vale mais. Num recorrente, encerra a série: nenhuma ocorrência nova é gerada a
+         *     partir dele (as já geradas continuam). Para só pular uma ocorrência, confirme-a.
+         *      */
         post: operations["cancelarLembrete"];
         delete?: never;
         options?: never;
@@ -1561,6 +1564,16 @@ export interface components {
          * @enum {string}
          */
         PrecisaoLembrete: "hora" | "turno" | "dia" | "semana" | "mes";
+        /**
+         * @description De quanto em quanto o lembrete se repete (vezes `intervalo`). Cada ocorrência é um lembrete
+         *     comum; a próxima é gerada quando a atual dispara ou é confirmada, contada a partir da âncora da
+         *     série (adiar uma ocorrência não desloca as seguintes; no mensal e no anual, o dia 31 ou 29/2
+         *     cai no último dia do mês). A recorrência não pode ser mais curta que a janela da precisão
+         *     (diária só com hora, turno ou dia; semanal até semana).
+         *
+         * @enum {string}
+         */
+        RecorrenciaLembrete: "diaria" | "semanal" | "mensal" | "anual";
         Lembrete: {
             /** @example L-0001 */
             id: string;
@@ -1603,6 +1616,21 @@ export interface components {
             confirmado_em?: string;
             /** @description URL do lembrete no frontend, se o servidor conhece a base pública */
             link?: string;
+            recorrencia?: components["schemas"]["RecorrenciaLembrete"];
+            /** @description Repete a cada N recorrências (a cada 2 semanas: semanal, 2); só nos recorrentes */
+            intervalo?: number;
+            /**
+             * @description Primeiro lembrete da série; só nos que são ou foram recorrentes
+             * @example L-0001
+             */
+            serie?: string;
+            /** @description Posição desta ocorrência na série, a partir de 0 (volta a 0 quando a série é reancorada) */
+            ocorrencia?: number;
+            /**
+             * @description A ocorrência seguinte, quando já gerada
+             * @example L-0002
+             */
+            seguinte?: string;
             /** Format: date-time */
             criado_em: string;
             /** Format: date-time */
@@ -1624,6 +1652,10 @@ export interface components {
             organizacao: string;
             tarefa?: string;
             requisito?: string;
+            /** @description Ausente: lembrete avulso. Presente: `quando` é a primeira ocorrência e a âncora da série */
+            recorrencia?: components["schemas"]["RecorrenciaLembrete"];
+            /** @description Padrão: 1 */
+            intervalo?: number;
         };
         AlteracaoLembrete: {
             texto?: string;
@@ -1638,6 +1670,13 @@ export interface components {
             tarefa?: string;
             /** @description Vazio remove a ligação */
             requisito?: string;
+            /** @description diaria, semanal, mensal ou anual torna o lembrete recorrente (ou muda a recorrência); vazio
+             *     o torna avulso (a série acaba nele). Vale só para esta ocorrência e as que ela gerar: para
+             *     mudar uma série cuja próxima ocorrência já existe, altere a próxima. Mudar `quando`,
+             *     `precisao`, `recorrencia` ou `intervalo` de um recorrente reancora a série nesta ocorrência.
+             *      */
+            recorrencia?: string;
+            intervalo?: number;
         };
         Adiamento: {
             /** Format: date-time */
@@ -3193,6 +3232,10 @@ export interface operations {
                 ate?: string;
                 organizacao?: string;
                 tarefa?: string;
+                /** @description true: só as séries em andamento, uma linha por série (a ocorrência mais recente, que é a
+                 *     que gera as seguintes), qualquer que seja o status; ignora `status`
+                 *      */
+                recorrentes?: boolean;
             };
             header?: never;
             path?: never;

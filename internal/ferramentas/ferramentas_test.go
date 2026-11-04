@@ -506,7 +506,7 @@ func TestServidorDoConectorSoVozEmProcesso(t *testing.T) {
 	for _, f := range lista.Tools {
 		nomes = append(nomes, f.Name)
 	}
-	if err != nil || strings.Join(nomes, ",") != "adiar_lembrete,alterar_lembrete,cancelar_lembrete,confirmar_lembrete,consultar_tarefas,criar_lembrete,criar_tarefa,descer_item,encerrar_sessao_orfa,lancar_agente,obter_tarefa,opcoes_do_lancador,proximos_lembretes,recursos_da_maquina,voz_enviar,voz_panorama,voz_situacao,voz_tecla" {
+	if err != nil || strings.Join(nomes, ",") != "adiar_lembrete,alterar_lembrete,cancelar_lembrete,confirmar_lembrete,consultar_tarefas,criar_lembrete,criar_tarefa,descer_item,encerrar_sessao_orfa,lancar_agente,lembretes_recorrentes,obter_tarefa,opcoes_do_lancador,proximos_lembretes,recursos_da_maquina,voz_enviar,voz_panorama,voz_situacao,voz_tecla" {
 		t.Fatalf("ferramentas do conector: %v %+v", err, lista)
 	}
 	c := &chat{t: t, sessao: sessao}
@@ -567,5 +567,39 @@ func TestSituacaoDoLembrete(t *testing.T) {
 		if got := situacao(c.x, agora); got != c.quer {
 			t.Errorf("%s: %s, esperava %s", c.nome, got, c.quer)
 		}
+	}
+}
+
+func TestLembretesRecorrentesPeloMCP(t *testing.T) {
+	endereco := novaAPI(t)
+	c := novoChat(t, endereco)
+	var sessao api.Sessao
+	c.chamar("iniciar_sessao", map[string]any{"modelo": "Claude Opus 5.5"}, &sessao)
+
+	proximoMes := time.Now().AddDate(0, 1, 0)
+	quando := time.Date(proximoMes.Year(), proximoMes.Month(), 1, 10, 0, 0, 0, time.Local).Format(time.RFC3339)
+	var l ResumoDeLembrete
+	c.chamar("criar_lembrete", map[string]any{"texto": "pagar a fatura", "quando": quando, "precisao": "dia", "organizacao": "Exemplo",
+		"recorrencia": "mensal"}, &l)
+	if l.Recorrencia != "mensal" || l.Intervalo != 1 || l.Serie != l.Id {
+		t.Fatalf("recorrente: %+v", l)
+	}
+	if msg := c.chamar("criar_lembrete", map[string]any{"texto": "x", "quando": quando, "precisao": "mes", "organizacao": "Exemplo",
+		"recorrencia": "semanal"}, nil); !strings.Contains(msg, "mesma janela") {
+		t.Fatalf("semanal com precisão de mês deveria recusar: %q", msg)
+	}
+	var lista LembretesRecorrentes
+	c.chamar("lembretes_recorrentes", map[string]any{}, &lista)
+	if len(lista.Lembretes) != 1 || lista.Lembretes[0].Id != l.Id {
+		t.Fatalf("recorrentes: %+v", lista)
+	}
+	var avulso ResumoDeLembrete
+	c.chamar("alterar_lembrete", map[string]any{"id": l.Id, "recorrencia": ""}, &avulso)
+	if avulso.Recorrencia != "" || avulso.Id != l.Id {
+		t.Fatalf("esperava avulso: %+v", avulso)
+	}
+	c.chamar("lembretes_recorrentes", map[string]any{}, &lista)
+	if len(lista.Lembretes) != 0 {
+		t.Fatalf("avulso continua recorrente: %+v", lista)
 	}
 }

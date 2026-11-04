@@ -44,7 +44,7 @@ a integrações:
 
 | Tipo | Entidade | Dados |
 |---|---|---|
-| `lembrete_criado` | L-… | `quando` |
+| `lembrete_criado` | L-… | `quando`, `precisao`; num recorrente, `recorrencia` e `intervalo`; na ocorrência gerada pela série, `serie` e `anterior` (autor `agendador` quando nasce do disparo) |
 | `lembrete_alterado` | L-… | campos alterados |
 | `lembrete_disparado` | L-… | `quando`, `atrasado` |
 | `lembrete_adiado` | L-… | `quando` (nova hora) |

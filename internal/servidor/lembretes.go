@@ -17,7 +17,7 @@ func idLembrete(n int64) string { return idCom("L", n) }
 const toleranciaDeDisparo = time.Minute
 
 const colunasLembrete = `id, texto, curto, quando, precisao, organizacao, tarefa_id, requisito_id, status, autor, disparado_em, atrasado,
-	adiamentos, confirmado_em, criado_em, atualizado_em`
+	adiamentos, confirmado_em, criado_em, atualizado_em, recorrencia, intervalo, ocorrencia, serie_id, seguinte_id`
 
 // pendente: os status que ainda pedem atenção.
 var statusPendentes = []api.StatusLembrete{api.Agendado, api.Adiado, api.Disparado}
@@ -27,13 +27,27 @@ func (s *Servidor) lerLembrete(linha varredor) (api.Lembrete, error) {
 	var n int64
 	var quando, precisao, status, criado, atualizado string
 	var tarefa, requisito sql.NullInt64
-	var curto, disparado, confirmado sql.NullString
+	var curto, disparado, confirmado, recorrencia sql.NullString
+	var serie, seguinte sql.NullInt64
+	var intervalo, ocorrencia int
 	var atrasado bool
 	if err := linha.Scan(&n, &x.Texto, &curto, &quando, &precisao, &x.Organizacao, &tarefa, &requisito, &status, &x.Autor, &disparado,
-		&atrasado, &x.Adiamentos, &confirmado, &criado, &atualizado); err != nil {
+		&atrasado, &x.Adiamentos, &confirmado, &criado, &atualizado, &recorrencia, &intervalo, &ocorrencia, &serie, &seguinte); err != nil {
 		return x, err
 	}
 	x.Id = idLembrete(n)
+	if recorrencia.Valid {
+		r := api.RecorrenciaLembrete(recorrencia.String)
+		x.Recorrencia, x.Intervalo = &r, &intervalo
+	}
+	if serie.Valid {
+		id := idLembrete(serie.Int64)
+		x.Serie, x.Ocorrencia = &id, &ocorrencia
+	}
+	if seguinte.Valid {
+		id := idLembrete(seguinte.Int64)
+		x.Seguinte = &id
+	}
 	if curto.Valid {
 		x.Curto = &curto.String
 	}
@@ -155,6 +169,10 @@ func (s *Servidor) ListarLembretes(w http.ResponseWriter, r *http.Request, param
 		}
 	}
 	filtro, args := emSQL(status)
+	if params.Recorrentes != nil && *params.Recorrentes {
+		// A ponta de cada série em andamento: recorrente, sem seguinte e não cancelada.
+		filtro, args = `recorrencia IS NOT NULL AND seguinte_id IS NULL AND status != ?`, []any{string(api.Cancelado)}
+	}
 	if params.Ate != nil {
 		filtro += ` AND quando_utc <= ?`
 		args = append(args, utc(*params.Ate))
@@ -249,10 +267,24 @@ func (s *Servidor) inserirLembrete(tx *sql.Tx, quem string, novo api.NovoLembret
 	if err != nil {
 		return api.Lembrete{}, err
 	}
+	intervalo := 1
+	if novo.Intervalo != nil {
+		intervalo = *novo.Intervalo
+	}
+	var recorrencia, serieInicio any
+	if novo.Recorrencia != nil {
+		if err := validarRecorrencia(*novo.Recorrencia, intervalo, precisao); err != nil {
+			return api.Lembrete{}, err
+		}
+		recorrencia, serieInicio = string(*novo.Recorrencia), novo.Quando.Format(time.RFC3339)
+	} else if novo.Intervalo != nil {
+		return api.Lembrete{}, falha(http.StatusBadRequest, "intervalo só com recorrência")
+	}
 	agora := s.momento()
-	res, err := tx.Exec(`INSERT INTO lembretes (texto, curto, quando, quando_utc, precisao, organizacao, tarefa_id, requisito_id, autor, criado_em, atualizado_em)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, strings.TrimSpace(novo.Texto), curto, novo.Quando.Format(time.RFC3339), utc(novo.Quando),
-		string(precisao), strings.TrimSpace(novo.Organizacao), tarefa, requisito, quem, agora, agora)
+	res, err := tx.Exec(`INSERT INTO lembretes (texto, curto, quando, quando_utc, precisao, organizacao, tarefa_id, requisito_id, autor, criado_em, atualizado_em,
+		recorrencia, intervalo, serie_inicio)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, strings.TrimSpace(novo.Texto), curto, novo.Quando.Format(time.RFC3339), utc(novo.Quando),
+		string(precisao), strings.TrimSpace(novo.Organizacao), tarefa, requisito, quem, agora, agora, recorrencia, intervalo, serieInicio)
 	if err != nil {
 		return api.Lembrete{}, err
 	}
@@ -260,11 +292,20 @@ func (s *Servidor) inserirLembrete(tx *sql.Tx, quem string, novo api.NovoLembret
 	if err != nil {
 		return api.Lembrete{}, err
 	}
+	if recorrencia != nil {
+		if _, err := tx.Exec(`UPDATE lembretes SET serie_id = id WHERE id = ?`, n); err != nil {
+			return api.Lembrete{}, err
+		}
+	}
 	criado, err := s.carregarLembrete(tx, n)
 	if err != nil {
 		return criado, err
 	}
-	return criado, s.registrarEvento(tx, quem, criado.Id, "lembrete_criado", map[string]any{"quando": criado.Quando, "precisao": criado.Precisao})
+	dados := map[string]any{"quando": criado.Quando, "precisao": criado.Precisao}
+	if criado.Recorrencia != nil {
+		dados["recorrencia"], dados["intervalo"] = *criado.Recorrencia, *criado.Intervalo
+	}
+	return criado, s.registrarEvento(tx, quem, criado.Id, "lembrete_criado", dados)
 }
 
 func (s *Servidor) ObterLembrete(w http.ResponseWriter, r *http.Request, id api.Id) {
@@ -358,8 +399,8 @@ func (s *Servidor) AlterarLembrete(w http.ResponseWriter, r *http.Request, id ap
 			}
 			definir("organizacao", strings.TrimSpace(*alteracao.Organizacao))
 		}
+		precisao, quando := atual.Precisao, atual.Quando
 		if alteracao.Quando != nil || alteracao.Precisao != nil {
-			precisao, quando := atual.Precisao, atual.Quando
 			if alteracao.Precisao != nil {
 				precisao = *alteracao.Precisao
 				definir("precisao", string(precisao))
@@ -367,7 +408,8 @@ func (s *Servidor) AlterarLembrete(w http.ResponseWriter, r *http.Request, id ap
 			if alteracao.Quando != nil {
 				quando = *alteracao.Quando
 			}
-			quando, err := s.marcar(precisao, quando)
+			var err error
+			quando, err = s.marcar(precisao, quando)
 			if err != nil {
 				return err
 			}
@@ -391,6 +433,42 @@ func (s *Servidor) AlterarLembrete(w http.ResponseWriter, r *http.Request, id ap
 				definir("requisito_id", requisito)
 			}
 		}
+		// Recorrência: a que fica depois da alteração, validada contra a precisão final; mudar a
+		// recorrência, o intervalo, a hora ou a precisão de um recorrente reancora a série aqui.
+		var recorrencia *api.RecorrenciaLembrete
+		intervalo := 1
+		if atual.Recorrencia != nil {
+			recorrencia, intervalo = atual.Recorrencia, *atual.Intervalo
+		}
+		if alteracao.Recorrencia != nil {
+			recorrencia = nil
+			if !vazio(*alteracao.Recorrencia) {
+				r := api.RecorrenciaLembrete(strings.TrimSpace(*alteracao.Recorrencia))
+				recorrencia = &r
+			}
+		}
+		if alteracao.Intervalo != nil {
+			if recorrencia == nil {
+				return falha(http.StatusBadRequest, "intervalo só com recorrência")
+			}
+			intervalo = *alteracao.Intervalo
+		}
+		if recorrencia == nil && atual.Recorrencia != nil {
+			definir("recorrencia", nil)
+			sets = append(sets, "intervalo = 1")
+		}
+		if recorrencia != nil && (alteracao.Recorrencia != nil || alteracao.Intervalo != nil || alteracao.Quando != nil || alteracao.Precisao != nil) {
+			if err := validarRecorrencia(*recorrencia, intervalo, precisao); err != nil {
+				return err
+			}
+			definir("recorrencia", string(*recorrencia))
+			definir("intervalo", intervalo)
+			definir("serie_inicio", quando.Format(time.RFC3339))
+			definir("ocorrencia", 0)
+			if atual.Serie == nil {
+				definir("serie_id", n)
+			}
+		}
 		if len(sets) == 0 {
 			return falha(http.StatusBadRequest, "nenhum campo para alterar")
 		}
@@ -399,7 +477,15 @@ func (s *Servidor) AlterarLembrete(w http.ResponseWriter, r *http.Request, id ap
 		if _, err := tx.Exec(`UPDATE lembretes SET `+strings.Join(sets, ", ")+` WHERE id = ?`, args...); err != nil {
 			return err
 		}
-		return s.registrarEvento(tx, quem, atual.Id, "lembrete_alterado", campos)
+		if err := s.registrarEvento(tx, quem, atual.Id, "lembrete_alterado", campos); err != nil {
+			return err
+		}
+		// Tornado recorrente depois de disparar: a próxima ocorrência sai já.
+		depois, err := s.carregarLembrete(tx, n)
+		if err != nil || depois.Status != api.Disparado {
+			return err
+		}
+		return s.gerarSeguinte(tx, quem, depois)
 	})
 }
 
@@ -416,7 +502,11 @@ func (s *Servidor) ConfirmarLembrete(w http.ResponseWriter, r *http.Request, id 
 			string(api.Confirmado), agora, agora, n); err != nil {
 			return err
 		}
-		return s.registrarEvento(tx, quem, atual.Id, "lembrete_confirmado", nil)
+		if err := s.registrarEvento(tx, quem, atual.Id, "lembrete_confirmado", nil); err != nil {
+			return err
+		}
+		// Confirmado antes de disparar, o recorrente ainda não gerou a próxima ocorrência.
+		return s.gerarSeguinte(tx, quem, atual)
 	})
 }
 
@@ -484,6 +574,9 @@ func (s *Servidor) DispararVencidos() (int, error) {
 			if err := s.registrarEvento(tx, "agendador", x.Id, "lembrete_disparado", map[string]any{
 				"quando": x.Quando.Format(time.RFC3339), "atrasado": atrasado,
 			}); err != nil {
+				return err
+			}
+			if err := s.gerarSeguinte(tx, "agendador", x); err != nil {
 				return err
 			}
 		}

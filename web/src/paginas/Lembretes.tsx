@@ -49,6 +49,14 @@ function descreverQuando(l: Lembrete): string {
   return formatoDaHora.format(d)
 }
 
+// A recorrência por extenso: "todo mês", "a cada 2 semanas".
+function descreverRecorrencia(l: Lembrete): string | undefined {
+  if (!l.recorrencia) return undefined
+  const n = l.intervalo ?? 1
+  const unidade = { diaria: ["todo dia", "dias"], semanal: ["toda semana", "semanas"], mensal: ["todo mês", "meses"], anual: ["todo ano", "anos"] }[l.recorrencia]
+  return n === 1 ? unidade[0] : `a cada ${n} ${unidade[1]}`
+}
+
 // Lembretes: o que está tocando primeiro, depois os próximos; quem avisa no celular
 // e na barra são as integrações da instalação.
 export function Lembretes() {
@@ -110,6 +118,8 @@ function ItemDeLembrete({ lembrete: l, destacado }: { lembrete: Lembrete; destac
       </div>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
         <span>{descreverQuando(l)}</span>
+        {l.recorrencia && <span title={l.serie ? `série de ${l.serie}` : undefined}>↻ {descreverRecorrencia(l)}</span>}
+        {l.seguinte && <span>próximo: {l.seguinte}</span>}
         {l.atrasado && l.status === "disparado" && <span>tocou atrasado</span>}
         {l.adiamentos > 0 && <span>adiado {l.adiamentos}×</span>}
         <span>{l.organizacao}</span>

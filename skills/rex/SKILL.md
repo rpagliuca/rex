@@ -175,6 +175,15 @@ ligação de um lembrete, `alterar_lembrete` (mantém o id); `cancelar_lembrete`
 que o lembrete não vale mais. Nunca cancele e recrie para editar: o Rafael vê o antigo como
 cancelado, e cancelado não volta. O rex guarda a hora; avisar com antecedência é das integrações.
 
+**Recorrentes** ("todo dia 1º", "toda segunda", "todo ano"): `criar_lembrete` com `recorrencia`
+(`diaria`, `semanal`, `mensal` ou `anual`; `intervalo` para "a cada 2 semanas") e o `quando` da
+primeira ocorrência. Cada ocorrência é um lembrete comum, com id próprio; a próxima nasce sozinha
+quando a atual dispara ou é confirmada, contada da âncora da série (adiar uma não desloca as outras).
+`lembretes_recorrentes` lista as séries em andamento pela ocorrência mais recente: é nela que se
+altera a série (`alterar_lembrete`; `recorrencia` vazia torna avulso) ou se encerra
+(`cancelar_lembrete`, só quando ele disser que a série não vale mais). Para pular uma ocorrência,
+confirme-a. Para tornar recorrente um lembrete que já existe, `alterar_lembrete` com `recorrencia`.
+
 Depois de `criar_lembrete` ou `alterar_lembrete`, confira no retorno (e, na dúvida, em
 `proximos_lembretes`) que texto, data, precisão e organização ficaram como ele pediu, e diga a ele o
 que ficou gravado. Se algo saiu diferente, corrija com `alterar_lembrete` e avise.

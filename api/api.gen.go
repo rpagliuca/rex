@@ -81,6 +81,14 @@ const (
 	Media Prioridade = "media"
 )
 
+// Defines values for RecorrenciaLembrete.
+const (
+	RecorrenciaAnual   RecorrenciaLembrete = "anual"
+	RecorrenciaDiaria  RecorrenciaLembrete = "diaria"
+	RecorrenciaMensal  RecorrenciaLembrete = "mensal"
+	RecorrenciaSemanal RecorrenciaLembrete = "semanal"
+)
+
 // Defines values for StatusLembrete.
 const (
 	Adiado     StatusLembrete = "adiado"
@@ -148,11 +156,18 @@ type AlteracaoComponente struct {
 type AlteracaoLembrete struct {
 	// Curto Vazio remove a palavra-chave
 	Curto       *string `json:"curto,omitempty"`
+	Intervalo   *int    `json:"intervalo,omitempty"`
 	Organizacao *string `json:"organizacao,omitempty"`
 
 	// Precisao Mudar a precisão (ou a hora de um turno ou dia) põe `quando` no início da janela
 	Precisao *PrecisaoLembrete `json:"precisao,omitempty"`
 	Quando   *time.Time        `json:"quando,omitempty"`
+
+	// Recorrencia diaria, semanal, mensal ou anual torna o lembrete recorrente (ou muda a recorrência); vazio
+	// o torna avulso (a série acaba nele). Vale só para esta ocorrência e as que ela gerar: para
+	// mudar uma série cuja próxima ocorrência já existe, altere a próxima. Mudar `quando`,
+	// `precisao`, `recorrencia` ou `intervalo` de um recorrente reancora a série nesta ocorrência.
+	Recorrencia *string `json:"recorrencia,omitempty"`
 
 	// Requisito Vazio remove a ligação
 	Requisito *string `json:"requisito,omitempty"`
@@ -398,9 +413,15 @@ type Lembrete struct {
 	Fim *time.Time `json:"fim,omitempty"`
 	Id  string     `json:"id"`
 
+	// Intervalo Repete a cada N recorrências (a cada 2 semanas: semanal, 2); só nos recorrentes
+	Intervalo *int `json:"intervalo,omitempty"`
+
 	// Link URL do lembrete no frontend, se o servidor conhece a base pública
-	Link        *string `json:"link,omitempty"`
-	Organizacao string  `json:"organizacao"`
+	Link *string `json:"link,omitempty"`
+
+	// Ocorrencia Posição desta ocorrência na série, a partir de 0 (volta a 0 quando a série é reancorada)
+	Ocorrencia  *int   `json:"ocorrencia,omitempty"`
+	Organizacao string `json:"organizacao"`
 
 	// Precisao Quão exata é a hora marcada. hora: o Rafael disse data e hora explícitas; o lembrete é
 	// sensível ao horário e as integrações podem tocar alarme. turno, dia, semana ou mes: vale para
@@ -410,8 +431,21 @@ type Lembrete struct {
 	Precisao PrecisaoLembrete `json:"precisao"`
 
 	// Quando Hora marcada atual (após adiamentos), com o fuso em que foi pedida
-	Quando    time.Time `json:"quando"`
-	Requisito *string   `json:"requisito,omitempty"`
+	Quando time.Time `json:"quando"`
+
+	// Recorrencia De quanto em quanto o lembrete se repete (vezes `intervalo`). Cada ocorrência é um lembrete
+	// comum; a próxima é gerada quando a atual dispara ou é confirmada, contada a partir da âncora da
+	// série (adiar uma ocorrência não desloca as seguintes; no mensal e no anual, o dia 31 ou 29/2
+	// cai no último dia do mês). A recorrência não pode ser mais curta que a janela da precisão
+	// (diária só com hora, turno ou dia; semanal até semana).
+	Recorrencia *RecorrenciaLembrete `json:"recorrencia,omitempty"`
+	Requisito   *string              `json:"requisito,omitempty"`
+
+	// Seguinte A ocorrência seguinte, quando já gerada
+	Seguinte *string `json:"seguinte,omitempty"`
+
+	// Serie Primeiro lembrete da série; só nos que são ou foram recorrentes
+	Serie *string `json:"serie,omitempty"`
 
 	// Status agendado (esperando a hora), disparado (a hora chegou; pede atenção até confirmar ou adiar),
 	// adiado (reagendado depois de criado; volta a disparado na nova hora), confirmado e cancelado
@@ -523,18 +557,24 @@ type NovoComponente struct {
 // NovoLembrete defines model for NovoLembrete.
 type NovoLembrete struct {
 	// Curto Palavra-chave do lembrete, até 10 caracteres ("ballet", "dentista"); sem ela, as integrações usam o começo do texto
-	Curto       *string `json:"curto,omitempty"`
-	Organizacao string  `json:"organizacao"`
+	Curto *string `json:"curto,omitempty"`
+
+	// Intervalo Padrão: 1
+	Intervalo   *int   `json:"intervalo,omitempty"`
+	Organizacao string `json:"organizacao"`
 
 	// Precisao Padrão: hora
 	Precisao *PrecisaoLembrete `json:"precisao,omitempty"`
 
 	// Quando Instante com fuso; no passado é recusado. Em turno ou dia, qualquer hora do turno ou do
 	// dia: o rex a troca pelo início da janela, e só recusa se a janela inteira já passou.
-	Quando    time.Time `json:"quando"`
-	Requisito *string   `json:"requisito,omitempty"`
-	Tarefa    *string   `json:"tarefa,omitempty"`
-	Texto     string    `json:"texto"`
+	Quando time.Time `json:"quando"`
+
+	// Recorrencia Ausente: lembrete avulso. Presente: `quando` é a primeira ocorrência e a âncora da série
+	Recorrencia *RecorrenciaLembrete `json:"recorrencia,omitempty"`
+	Requisito   *string              `json:"requisito,omitempty"`
+	Tarefa      *string              `json:"tarefa,omitempty"`
+	Texto       string               `json:"texto"`
 }
 
 // NovoRequisito defines model for NovoRequisito.
@@ -720,6 +760,13 @@ type ProjetoDocker struct {
 	// Projeto com.docker.compose.project; vazio para container avulso
 	Projeto string `json:"projeto"`
 }
+
+// RecorrenciaLembrete De quanto em quanto o lembrete se repete (vezes `intervalo`). Cada ocorrência é um lembrete
+// comum; a próxima é gerada quando a atual dispara ou é confirmada, contada a partir da âncora da
+// série (adiar uma ocorrência não desloca as seguintes; no mensal e no anual, o dia 31 ou 29/2
+// cai no último dia do mês). A recorrência não pode ser mais curta que a janela da precisão
+// (diária só com hora, turno ou dia; semanal até semana).
+type RecorrenciaLembrete string
 
 // Recursos defines model for Recursos.
 type Recursos struct {
@@ -1103,6 +1150,10 @@ type ListarLembretesParams struct {
 	Ate         *time.Time `form:"ate,omitempty" json:"ate,omitempty"`
 	Organizacao *string    `form:"organizacao,omitempty" json:"organizacao,omitempty"`
 	Tarefa      *string    `form:"tarefa,omitempty" json:"tarefa,omitempty"`
+
+	// Recorrentes true: só as séries em andamento, uma linha por série (a ocorrência mais recente, que é a
+	// que gera as seguintes), qualquer que seja o status; ignora `status`
+	Recorrentes *bool `form:"recorrentes,omitempty" json:"recorrentes,omitempty"`
 }
 
 // ListarRequisitosParams defines parameters for ListarRequisitos.
@@ -3603,6 +3654,22 @@ func NewListarLembretesRequest(server string, params *ListarLembretesParams) (*h
 		if params.Tarefa != nil {
 
 			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "tarefa", runtime.ParamLocationQuery, *params.Tarefa); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Recorrentes != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "recorrentes", runtime.ParamLocationQuery, *params.Recorrentes); err != nil {
 				return nil, err
 			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 				return nil, err
@@ -12254,6 +12321,14 @@ func (siw *ServerInterfaceWrapper) ListarLembretes(w http.ResponseWriter, r *htt
 	err = runtime.BindQueryParameter("form", true, false, "tarefa", r.URL.Query(), &params.Tarefa)
 	if err != nil {
 		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tarefa", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "recorrentes" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "recorrentes", r.URL.Query(), &params.Recorrentes)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "recorrentes", Err: err})
 		return
 	}
 
