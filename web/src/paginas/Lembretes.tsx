@@ -27,6 +27,7 @@ const formatoDaHora = new Intl.DateTimeFormat("pt-BR", { weekday: "short", day: 
 const formatoDoDia = new Intl.DateTimeFormat("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" })
 const formatoDaSemana = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit" })
 const formatoDoMes = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" })
+const formatoDoFim = new Intl.DateTimeFormat("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit" })
 
 type Turno = "manha" | "almoco" | "tarde" | "noite"
 const nomesDoTurno: Record<Turno, string> = { manha: "manhã", almoco: "almoço", tarde: "tarde", noite: "noite" }
@@ -40,10 +41,20 @@ function turnoDe(quando: string): Turno {
   return h < 12 ? "manha" : h < 13 ? "almoco" : h < 18 ? "tarde" : "noite"
 }
 
+// Até quando vale a janela de semana, fim de semana ou mês ("até sex., 13/11, 18h"); o fim é exclusivo,
+// então meia-noite vira o dia anterior.
+function ate(l: Lembrete): string {
+  if (!l.fim) return ""
+  const fim = new Date(l.fim)
+  if (fim.getHours() === 0 && fim.getMinutes() === 0) return ` · até ${formatoDoDia.format(new Date(fim.getTime() - 1))}`
+  return ` · até ${formatoDoFim.format(fim)}h`
+}
+
 function descreverQuando(l: Lembrete): string {
   const d = new Date(l.quando)
-  if (l.precisao === "mes") return formatoDoMes.format(d)
-  if (l.precisao === "semana") return `semana de ${formatoDaSemana.format(d)}`
+  if (l.precisao === "mes") return `${formatoDoMes.format(d)}${ate(l)}`
+  if (l.precisao === "semana") return `semana de ${formatoDaSemana.format(d)}${ate(l)}`
+  if (l.precisao === "fim_de_semana") return `fim de semana de ${formatoDaSemana.format(d)}${ate(l)}`
   if (l.precisao === "dia") return `${formatoDoDia.format(d)} · o dia todo`
   if (l.precisao === "turno") return `${formatoDoDia.format(d)} · ${nomesDoTurno[turnoDe(l.quando)]}`
   return formatoDaHora.format(d)
@@ -198,8 +209,8 @@ function trocarPrecisao(m: Marcacao, precisao: PrecisaoLembrete): Marcacao {
   return { ...m, precisao, local: precisao === "hora" ? (data ? `${data}T09:00` : "") : data }
 }
 
-// Hora marcada (com alarme) ou um turno, dia, semana ou mês (avisados em lote, sem som). Em semana e
-// mês, qualquer dia dentro dela serve: o servidor põe no início.
+// Hora marcada (com alarme) ou um turno, dia, semana, fim de semana ou mês (avisados em lote, sem som).
+// Em semana, fim de semana e mês, qualquer dia dentro dela serve: o servidor põe no início e grava o fim.
 function CamposDeQuando({ prefixo, marcacao: m, mudar }: { prefixo: string; marcacao: Marcacao; mudar: (m: Marcacao) => void }) {
   return (
     <>
@@ -213,7 +224,8 @@ function CamposDeQuando({ prefixo, marcacao: m, mudar }: { prefixo: string; marc
             <SelectItem value="hora">Hora marcada</SelectItem>
             <SelectItem value="turno">Turno</SelectItem>
             <SelectItem value="dia">Dia</SelectItem>
-            <SelectItem value="semana">Semana</SelectItem>
+            <SelectItem value="semana">Semana (até sexta)</SelectItem>
+            <SelectItem value="fim_de_semana">Fim de semana</SelectItem>
             <SelectItem value="mes">Mês</SelectItem>
           </SelectContent>
         </Select>

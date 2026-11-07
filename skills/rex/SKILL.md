@@ -162,14 +162,20 @@ Compromisso que o Rafael pediu para lembrar (ou que a tarefa exige, como "renova
 sexta às 9"): `criar_lembrete` com `quando` em RFC 3339 com fuso, ligado à tarefa quando for dela. A
 `precisao` sai do que ele disse: `hora` só com data e hora explícitas ("sexta às 9"), `turno` para
 "de manhã", "no almoço", "à tarde" ou "à noite", `dia` para "amanhã" ou "sexta" sem hora, `semana`
-para "semana que vem" ou "próxima semana", `mes` para "em abril" ou "mês que vem"; com o dia dentro
+para "semana que vem" ou "próxima semana", `fim_de_semana` para "no fim de semana", `mes` para "em abril" ou
+"mês que vem"; com o dia dentro
 deles ("quarta da semana que vem"), `dia`. Nunca invente uma hora para o que não tem: só `hora` toca
 alarme; os demais são avisados em lote, sem som. Preencha `curto` com a palavra-chave do compromisso
 (até 10 caracteres: "ballet", "dentista", "Vivo"): é o que cabe no resumo da ilha do iPhone, e sem
-ela a ilha mostra o começo do texto. `proximos_lembretes` mostra o que vence, com a `situacao` de
-cada um: disparado não é vencido, e só `vencido` é atrasado. Turno, dia, semana e mês disparam no
-início da janela (o de dia às 8h do próprio dia, o de semana na segunda, o de mês no dia 1) e ficam
-`na_janela`, para fazer no período corrente, até o fim dela; então nunca entram num "adia os de ontem";
+ela a ilha mostra o começo do texto. O rex grava o fim da janela ao salvar: o dia vai até a
+meia-noite, a semana de segunda às 8h até **sexta às 18h** (pedida no sábado ou domingo, já é a
+semana seguinte), o fim de semana de sábado às 8h até domingo à meia-noite, e o mês do dia 1 até o
+**último dia útil às 18h**. `fim` em `criar_lembrete`/`alterar_lembrete` só quando ele pedir outro
+prazo. `proximos_lembretes` traz de cada um `vence` (o fim, ou a hora) e `vence_no_periodo`: "o que
+vence nos próximos 3 dias" (`horas: 72`) são **todos** os `vencido` e os `vence_no_periodo`, de
+qualquer precisão. Disparado não é vencido, e só `vencido` é atrasado. As janelas disparam no início
+(o dia às 8h, a semana na segunda, o fim de semana no sábado, o mês no dia 1) e ficam `na_janela`,
+para fazer no período corrente, até o fim dela; então nunca entram num "adia os de ontem";
 `confirmar_lembrete` só quando ele disser que viu ou fez. Para mudar o texto, o curto, a hora, a precisão ou a
 ligação de um lembrete, `alterar_lembrete` (mantém o id); `cancelar_lembrete` só quando ele disser
 que o lembrete não vale mais. Nunca cancele e recrie para editar: o Rafael vê o antigo como

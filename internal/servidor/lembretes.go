@@ -17,7 +17,7 @@ func idLembrete(n int64) string { return idCom("L", n) }
 const toleranciaDeDisparo = time.Minute
 
 const colunasLembrete = `id, texto, curto, quando, precisao, organizacao, tarefa_id, requisito_id, status, autor, disparado_em, atrasado,
-	adiamentos, confirmado_em, criado_em, atualizado_em, recorrencia, intervalo, ocorrencia, serie_id, seguinte_id`
+	adiamentos, confirmado_em, criado_em, atualizado_em, recorrencia, intervalo, ocorrencia, serie_id, seguinte_id, fim`
 
 // pendente: os status que ainda pedem atenção.
 var statusPendentes = []api.StatusLembrete{api.Agendado, api.Adiado, api.Disparado}
@@ -27,12 +27,12 @@ func (s *Servidor) lerLembrete(linha varredor) (api.Lembrete, error) {
 	var n int64
 	var quando, precisao, status, criado, atualizado string
 	var tarefa, requisito sql.NullInt64
-	var curto, disparado, confirmado, recorrencia sql.NullString
+	var curto, disparado, confirmado, recorrencia, fim sql.NullString
 	var serie, seguinte sql.NullInt64
 	var intervalo, ocorrencia int
 	var atrasado bool
 	if err := linha.Scan(&n, &x.Texto, &curto, &quando, &precisao, &x.Organizacao, &tarefa, &requisito, &status, &x.Autor, &disparado,
-		&atrasado, &x.Adiamentos, &confirmado, &criado, &atualizado, &recorrencia, &intervalo, &ocorrencia, &serie, &seguinte); err != nil {
+		&atrasado, &x.Adiamentos, &confirmado, &criado, &atualizado, &recorrencia, &intervalo, &ocorrencia, &serie, &seguinte, &fim); err != nil {
 		return x, err
 	}
 	x.Id = idLembrete(n)
@@ -53,9 +53,13 @@ func (s *Servidor) lerLembrete(linha varredor) (api.Lembrete, error) {
 	}
 	x.Quando, _ = time.Parse(time.RFC3339, quando)
 	x.Precisao = api.PrecisaoLembrete(precisao)
-	if x.Precisao != api.PrecisaoHora {
-		_, fim := s.turnos().janela(x.Precisao, x.Quando)
-		x.Fim = &fim
+	if fim.Valid {
+		t, _ := time.Parse(time.RFC3339, fim.String)
+		x.Fim = &t
+	} else if x.Precisao != api.PrecisaoHora {
+		// Ainda sem o fim gravado (antes de PreencherFins): o padrão da precisão.
+		_, t := s.turnos().janela(x.Precisao, x.Quando)
+		x.Fim = &t
 	}
 	x.Status = api.StatusLembrete(status)
 	x.Atrasado = &atrasado
@@ -280,11 +284,15 @@ func (s *Servidor) inserirLembrete(tx *sql.Tx, quem string, novo api.NovoLembret
 	} else if novo.Intervalo != nil {
 		return api.Lembrete{}, falha(http.StatusBadRequest, "intervalo só com recorrência")
 	}
+	fim, fimUTC, err := s.fimDoLembrete(precisao, novo.Quando, novo.Fim)
+	if err != nil {
+		return api.Lembrete{}, err
+	}
 	agora := s.momento()
 	res, err := tx.Exec(`INSERT INTO lembretes (texto, curto, quando, quando_utc, precisao, organizacao, tarefa_id, requisito_id, autor, criado_em, atualizado_em,
-		recorrencia, intervalo, serie_inicio)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, strings.TrimSpace(novo.Texto), curto, novo.Quando.Format(time.RFC3339), utc(novo.Quando),
-		string(precisao), strings.TrimSpace(novo.Organizacao), tarefa, requisito, quem, agora, agora, recorrencia, intervalo, serieInicio)
+		recorrencia, intervalo, serie_inicio, fim, fim_utc)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, strings.TrimSpace(novo.Texto), curto, novo.Quando.Format(time.RFC3339), utc(novo.Quando),
+		string(precisao), strings.TrimSpace(novo.Organizacao), tarefa, requisito, quem, agora, agora, recorrencia, intervalo, serieInicio, fim, fimUTC)
 	if err != nil {
 		return api.Lembrete{}, err
 	}
@@ -302,6 +310,9 @@ func (s *Servidor) inserirLembrete(tx *sql.Tx, quem string, novo api.NovoLembret
 		return criado, err
 	}
 	dados := map[string]any{"quando": criado.Quando, "precisao": criado.Precisao}
+	if criado.Fim != nil {
+		dados["fim"] = criado.Fim.Format(time.RFC3339)
+	}
 	if criado.Recorrencia != nil {
 		dados["recorrencia"], dados["intervalo"] = *criado.Recorrencia, *criado.Intervalo
 	}
@@ -421,6 +432,16 @@ func (s *Servidor) AlterarLembrete(w http.ResponseWriter, r *http.Request, id ap
 				}
 			}
 		}
+		// O fim acompanha a janela: informado, vale o informado; mudar quando ou precisão sem ele
+		// volta ao padrão da precisão.
+		if alteracao.Quando != nil || alteracao.Precisao != nil || alteracao.Fim != nil {
+			fim, fimUTC, err := s.fimDoLembrete(precisao, quando, alteracao.Fim)
+			if err != nil {
+				return err
+			}
+			definir("fim", fim)
+			sets, args = append(sets, "fim_utc = ?"), append(args, fimUTC)
+		}
 		if alteracao.Tarefa != nil || alteracao.Requisito != nil {
 			tarefa, requisito, err := ligacoesDoLembrete(tx, alteracao.Tarefa, alteracao.Requisito)
 			if err != nil {
@@ -531,11 +552,20 @@ func (s *Servidor) AdiarLembrete(w http.ResponseWriter, r *http.Request, id api.
 		if !quando.After(s.agora()) {
 			return falha(http.StatusBadRequest, "a nova hora precisa estar no futuro: %s", quando.Format(time.RFC3339))
 		}
-		if _, err := tx.Exec(`UPDATE lembretes SET status = ?, quando = ?, quando_utc = ?, adiamentos = adiamentos + 1, atualizado_em = ? WHERE id = ?`,
-			string(api.Adiado), quando.Format(time.RFC3339), utc(quando), s.momento(), n); err != nil {
+		// A janela vai junto: o fim volta ao padrão da precisão a partir da nova hora.
+		fim, fimUTC, err := s.fimDoLembrete(atual.Precisao, quando, nil)
+		if err != nil {
 			return err
 		}
-		return s.registrarEvento(tx, quem, atual.Id, "lembrete_adiado", map[string]any{"quando": quando.Format(time.RFC3339)})
+		if _, err := tx.Exec(`UPDATE lembretes SET status = ?, quando = ?, quando_utc = ?, fim = ?, fim_utc = ?, adiamentos = adiamentos + 1, atualizado_em = ? WHERE id = ?`,
+			string(api.Adiado), quando.Format(time.RFC3339), utc(quando), fim, fimUTC, s.momento(), n); err != nil {
+			return err
+		}
+		dados := map[string]any{"quando": quando.Format(time.RFC3339)}
+		if fim != nil {
+			dados["fim"] = fim
+		}
+		return s.registrarEvento(tx, quem, atual.Id, "lembrete_adiado", dados)
 	})
 }
 
@@ -550,6 +580,51 @@ func (s *Servidor) CancelarLembrete(w http.ResponseWriter, r *http.Request, id a
 		}
 		return s.registrarEvento(tx, quem, atual.Id, "lembrete_cancelado", nil)
 	})
+}
+
+// fimDoLembrete devolve as colunas fim e fim_utc de um lembrete com a janela começando em quando:
+// NULL na precisão hora, o fim informado (depois do início) ou, sem ele, o padrão da precisão.
+func (s *Servidor) fimDoLembrete(p api.PrecisaoLembrete, quando time.Time, informado *time.Time) (any, any, error) {
+	if p == api.PrecisaoHora {
+		if informado != nil {
+			return nil, nil, falha(http.StatusBadRequest, "a precisão hora não tem fim de janela: vence na própria hora")
+		}
+		return nil, nil, nil
+	}
+	_, fim := s.turnos().janela(p, quando)
+	if informado != nil {
+		if !informado.After(quando) {
+			return nil, nil, falha(http.StatusBadRequest, "o fim (%s) precisa ser depois do início da janela (%s)",
+				informado.Format(time.RFC3339), quando.Format(time.RFC3339))
+		}
+		fim = informado.In(quando.Location())
+	}
+	return fim.Format(time.RFC3339), utc(fim), nil
+}
+
+// PreencherFins grava o fim dos lembretes de janela que ainda não o têm (os anteriores à migração
+// 0020), pelo padrão da precisão. Roda ao subir o servidor, depois das integrações (que definem os
+// turnos); devolve quantos preencheu.
+func (s *Servidor) PreencherFins() (int, error) {
+	n := 0
+	err := s.emTransacao(func(tx *sql.Tx) error {
+		lembretes, err := s.listarLembretes(tx, `fim IS NULL AND precisao != ?`, string(api.PrecisaoHora))
+		if err != nil {
+			return err
+		}
+		for _, x := range lembretes {
+			fim, fimUTC, err := s.fimDoLembrete(x.Precisao, x.Quando, nil)
+			if err != nil {
+				return err
+			}
+			if _, err := tx.Exec(`UPDATE lembretes SET fim = ?, fim_utc = ? WHERE id = ?`, fim, fimUTC, mustNumero(x.Id, "L")); err != nil {
+				return err
+			}
+		}
+		n = len(lembretes)
+		return nil
+	})
+	return n, err
 }
 
 // DispararVencidos marca como disparados os lembretes agendados ou adiados cuja hora chegou, com

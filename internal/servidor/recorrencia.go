@@ -24,7 +24,7 @@ func recorrenciaValida(r api.RecorrenciaLembrete) bool {
 // curta que a janela (um lembrete de semana que se repete todo dia cairia sempre na mesma janela).
 var largura = map[string]int{
 	string(api.PrecisaoHora): 0, string(api.PrecisaoTurno): 1, string(api.PrecisaoDia): 2,
-	string(api.PrecisaoSemana): 3, string(api.PrecisaoMes): 4,
+	string(api.PrecisaoSemana): 3, string(api.PrecisaoFimDeSemana): 3, string(api.PrecisaoMes): 4,
 	string(api.RecorrenciaDiaria): 2, string(api.RecorrenciaSemanal): 3, string(api.RecorrenciaMensal): 4, string(api.RecorrenciaAnual): 5,
 }
 
@@ -121,12 +121,16 @@ func (s *Servidor) gerarSeguinte(tx *sql.Tx, quem string, x api.Lembrete) error 
 	if x.Curto != nil {
 		curto = *x.Curto
 	}
+	fim, fimUTC, err := s.fimDoLembrete(x.Precisao, quando, nil)
+	if err != nil {
+		return err
+	}
 	momento := s.momento()
 	res, err := tx.Exec(`INSERT INTO lembretes (texto, curto, quando, quando_utc, precisao, organizacao, tarefa_id, requisito_id, autor,
-		criado_em, atualizado_em, recorrencia, intervalo, serie_inicio, ocorrencia, serie_id)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, x.Texto, curto, quando.Format(time.RFC3339), utc(quando),
+		criado_em, atualizado_em, recorrencia, intervalo, serie_inicio, ocorrencia, serie_id, fim, fim_utc)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, x.Texto, curto, quando.Format(time.RFC3339), utc(quando),
 		string(x.Precisao), x.Organizacao, tarefa, requisito, quem, momento, momento,
-		string(serie.recorrencia), serie.intervalo, serie.inicio.Format(time.RFC3339), k, serie.serie)
+		string(serie.recorrencia), serie.intervalo, serie.inicio.Format(time.RFC3339), k, serie.serie, fim, fimUTC)
 	if err != nil {
 		return err
 	}

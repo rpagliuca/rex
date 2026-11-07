@@ -1888,12 +1888,15 @@ components:
       type: string
       description: |
         Quão exata é a hora marcada. hora: o Rafael disse data e hora explícitas; o lembrete é
-        sensível ao horário e as integrações podem tocar alarme. turno, dia, semana ou mes: vale para
-        um turno (manhã, almoço, tarde ou noite), um dia, uma semana (de segunda a domingo) ou um mês
-        inteiro; o rex põe `quando` no início da janela, então os da mesma janela disparam juntos e as
-        integrações os avisam em lote, sem alarme.
-      enum: [hora, turno, dia, semana, mes]
-      x-enum-varnames: [PrecisaoHora, PrecisaoTurno, PrecisaoDia, PrecisaoSemana, PrecisaoMes]
+        sensível ao horário e as integrações podem tocar alarme. turno, dia, semana, fim_de_semana ou
+        mes: vale para uma janela, e o rex põe `quando` no início dela e grava o `fim`, então os da
+        mesma janela disparam juntos e as integrações os avisam em lote, sem alarme. As janelas: o
+        turno (manhã, almoço, tarde ou noite); o dia (da manhã à meia-noite); a semana (de segunda de
+        manhã até sexta no início da noite; sexta à noite, sábado e domingo já são da semana seguinte);
+        o fim de semana (de sábado de manhã até domingo à meia-noite; de segunda a sexta, é o seguinte);
+        o mês (do dia 1 de manhã até o início da noite do último dia útil; depois disso, o mês seguinte).
+      enum: [hora, turno, dia, semana, fim_de_semana, mes]
+      x-enum-varnames: [PrecisaoHora, PrecisaoTurno, PrecisaoDia, PrecisaoSemana, PrecisaoFimDeSemana, PrecisaoMes]
     RecorrenciaLembrete:
       type: string
       description: |
@@ -1901,7 +1904,7 @@ components:
         comum; a próxima é gerada quando a atual dispara ou é confirmada, contada a partir da âncora da
         série (adiar uma ocorrência não desloca as seguintes; no mensal e no anual, o dia 31 ou 29/2
         cai no último dia do mês). A recorrência não pode ser mais curta que a janela da precisão
-        (diária só com hora, turno ou dia; semanal até semana).
+        (diária só com hora, turno ou dia; semanal até semana ou fim_de_semana).
       enum: [diaria, semanal, mensal, anual]
       x-enum-varnames: [RecorrenciaDiaria, RecorrenciaSemanal, RecorrenciaMensal, RecorrenciaAnual]
     Lembrete:
@@ -1923,7 +1926,7 @@ components:
         fim:
           type: string
           format: date-time
-          description: 'Fim da janela (do turno ou do dia de `quando`); ausente na precisão hora'
+          description: 'Fim (exclusivo) da janela, gravado ao salvar: é quando o lembrete vence. Ausente na precisão hora, que vence em `quando`'
         organizacao: { type: string }
         tarefa: { type: string, example: T-0001 }
         requisito: { type: string, example: R-0001 }
@@ -1961,6 +1964,10 @@ components:
         precisao:
           allOf: [{ $ref: '#/components/schemas/PrecisaoLembrete' }]
           description: 'Padrão: hora'
+        fim:
+          type: string
+          format: date-time
+          description: 'Fim da janela, só para trocar o padrão da precisão (semana até domingo, por exemplo); depois do início da janela. Ausente: o padrão'
         organizacao: { type: string }
         tarefa: { type: string }
         requisito: { type: string }
@@ -1976,7 +1983,11 @@ components:
         quando: { type: string, format: date-time }
         precisao:
           allOf: [{ $ref: '#/components/schemas/PrecisaoLembrete' }]
-          description: 'Mudar a precisão (ou a hora de um turno ou dia) põe `quando` no início da janela'
+          description: 'Mudar a precisão (ou a hora de um turno ou dia) põe `quando` no início da janela e recalcula o `fim`'
+        fim:
+          type: string
+          format: date-time
+          description: 'Novo fim da janela, para trocar o padrão da precisão; depois do início da janela. Mudar quando ou precisão sem fim volta ao padrão'
         organizacao: { type: string }
         tarefa: { type: string, description: 'Vazio remove a ligação' }
         requisito: { type: string, description: 'Vazio remove a ligação' }

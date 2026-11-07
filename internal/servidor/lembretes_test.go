@@ -1,6 +1,7 @@
 package servidor
 
 import (
+	"database/sql"
 	"encoding/json"
 	"testing"
 	"time"
@@ -130,16 +131,68 @@ func TestLembretesDeTurnoEDia(t *testing.T) {
 		t.Fatalf("antes da manhã conta como manhã: %+v", madrugada)
 	}
 	semana := criar("recapturar", em(22, 15, 0), api.PrecisaoSemana, 201)
-	if semana.Quando.Format(time.RFC3339) != "2026-10-19T08:00:00-03:00" || semana.Fim.Format(time.RFC3339) != "2026-10-26T00:00:00-03:00" {
-		t.Fatalf("semana (segunda a domingo): %+v", semana)
+	if semana.Quando.Format(time.RFC3339) != "2026-10-19T08:00:00-03:00" || semana.Fim.Format(time.RFC3339) != "2026-10-23T18:00:00-03:00" {
+		t.Fatalf("semana (segunda de manhã a sexta às 18h): %+v", semana)
 	}
-	domingo := criar("revisar", time.Date(2026, 11, 1, 10, 0, 0, 0, fuso), api.PrecisaoSemana, 201)
-	if domingo.Quando.Format(time.RFC3339) != "2026-10-26T08:00:00-03:00" {
-		t.Fatalf("domingo é da semana que começou na segunda: %+v", domingo)
+	for _, quando := range []time.Time{em(23, 19, 0), em(24, 10, 0), time.Date(2026, 11, 1, 10, 0, 0, 0, fuso)} {
+		seguinte := criar("revisar", quando, api.PrecisaoSemana, 201)
+		quer := "2026-10-26T08:00:00-03:00"
+		if quando.Day() == 1 {
+			quer = "2026-11-02T08:00:00-03:00"
+		}
+		if seguinte.Quando.Format(time.RFC3339) != quer || !seguinte.Fim.Equal(seguinte.Quando.AddDate(0, 0, 4).Add(10*time.Hour)) {
+			t.Fatalf("sexta à noite, sábado e domingo já são da semana seguinte (%s): %+v", quando, seguinte)
+		}
+	}
+	fds := criar("faxina", em(21, 10, 0), api.PrecisaoFimDeSemana, 201)
+	if fds.Quando.Format(time.RFC3339) != "2026-10-24T08:00:00-03:00" || fds.Fim.Format(time.RFC3339) != "2026-10-26T00:00:00-03:00" {
+		t.Fatalf("fim de semana (sábado de manhã a domingo à meia-noite): %+v", fds)
+	}
+	if domingo := criar("faxina", em(25, 20, 0), api.PrecisaoFimDeSemana, 201); !domingo.Quando.Equal(fds.Quando) {
+		t.Fatalf("domingo é do fim de semana que começou no sábado: %+v", domingo)
 	}
 	mes := criar("revisar acessos", time.Date(2027, 4, 20, 9, 0, 0, 0, fuso), api.PrecisaoMes, 201)
-	if mes.Quando.Format(time.RFC3339) != "2027-04-01T08:00:00-03:00" || mes.Fim.Format(time.RFC3339) != "2027-05-01T00:00:00-03:00" {
-		t.Fatalf("mês: %+v", mes)
+	if mes.Quando.Format(time.RFC3339) != "2027-04-01T08:00:00-03:00" || mes.Fim.Format(time.RFC3339) != "2027-04-30T18:00:00-03:00" {
+		t.Fatalf("mês (até o último dia útil às 18h): %+v", mes)
+	}
+	janeiro := criar("revisar acessos", time.Date(2027, 1, 10, 9, 0, 0, 0, fuso), api.PrecisaoMes, 201)
+	if janeiro.Fim.Format(time.RFC3339) != "2027-01-29T18:00:00-03:00" {
+		t.Fatalf("janeiro de 2027 acaba num domingo: o último dia útil é a sexta 29: %+v", janeiro)
+	}
+	if outubro := criar("revisar acessos", em(30, 19, 0), api.PrecisaoMes, 201); outubro.Quando.Format(time.RFC3339) != "2026-11-01T08:00:00-03:00" ||
+		outubro.Fim.Format(time.RFC3339) != "2026-11-30T18:00:00-03:00" {
+		t.Fatalf("depois do último dia útil já é o mês seguinte: %+v", outubro)
+	}
+	// Outro fim que o padrão, só quando pedido; antes do início é recusado.
+	domingoAteMeiaNoite := time.Date(2026, 10, 26, 0, 0, 0, 0, fuso)
+	var ateDomingo api.Lembrete
+	a.chamar("POST", "/lembretes", "", api.NovoLembrete{Texto: "x", Quando: em(22, 9, 0), Precisao: precisao(api.PrecisaoSemana), Fim: &domingoAteMeiaNoite, Organizacao: "Exemplo"}, 201, &ateDomingo)
+	if !ateDomingo.Fim.Equal(domingoAteMeiaNoite) {
+		t.Fatalf("fim informado: %+v", ateDomingo)
+	}
+	antes := em(18, 0, 0)
+	a.chamar("POST", "/lembretes", "", api.NovoLembrete{Texto: "x", Quando: em(22, 9, 0), Precisao: precisao(api.PrecisaoSemana), Fim: &antes, Organizacao: "Exemplo"}, 400, nil)
+	a.chamar("POST", "/lembretes", "", api.NovoLembrete{Texto: "x", Quando: em(22, 9, 0), Fim: &domingoAteMeiaNoite, Organizacao: "Exemplo"}, 400, nil)
+	// Mudar a hora sem fim volta ao padrão.
+	sexta := em(29, 9, 0)
+	a.chamar("PATCH", "/lembretes/"+ateDomingo.Id, "", api.AlteracaoLembrete{Quando: &sexta}, 200, &ateDomingo)
+	if ateDomingo.Fim.Format(time.RFC3339) != "2026-10-30T18:00:00-03:00" {
+		t.Fatalf("mudar a hora recalcula o fim: %+v", ateDomingo)
+	}
+	a.chamar("PATCH", "/lembretes/"+ateDomingo.Id, "", api.AlteracaoLembrete{Fim: &domingoAteMeiaNoite}, 400, nil)
+	novoFim := time.Date(2026, 11, 2, 0, 0, 0, 0, fuso)
+	a.chamar("PATCH", "/lembretes/"+ateDomingo.Id, "", api.AlteracaoLembrete{Fim: &novoFim}, 200, &ateDomingo)
+	if !ateDomingo.Fim.Equal(novoFim) {
+		t.Fatalf("alterar só o fim: %+v", ateDomingo)
+	}
+	// Adiar leva a janela junto: o fim volta ao padrão a partir da nova hora.
+	sabado := em(31, 9, 0)
+	a.chamar("POST", "/lembretes/"+ateDomingo.Id+"/adiamento", "", api.Adiamento{Ate: &sabado}, 200, &ateDomingo)
+	if ateDomingo.Fim.Format(time.RFC3339) != "2026-11-06T18:00:00-03:00" {
+		t.Fatalf("semana adiada para o sábado vence na sexta seguinte: %+v", ateDomingo)
+	}
+	for _, x := range []api.Lembrete{ateDomingo} {
+		a.chamar("POST", "/lembretes/"+x.Id+"/cancelamento", "", nil, 200, nil)
 	}
 	dia := criar("pagar boleto", em(21, 9, 0), api.PrecisaoDia, 201)
 	if !dia.Quando.Equal(madrugada.Quando) || dia.Fim.Format(time.RFC3339) != "2026-10-22T00:00:00-03:00" {
@@ -254,5 +307,34 @@ func TestCurtoDoLembrete(t *testing.T) {
 	a.chamar("POST", "/lembretes", "", api.NovoLembrete{Texto: "sem palavra-chave", Quando: quando, Organizacao: "Exemplo"}, 201, &l)
 	if l.Curto != nil {
 		t.Fatalf("sem curto: %q", *l.Curto)
+	}
+}
+
+// Os lembretes de antes da migração 0020 não têm o fim gravado: valem pelo padrão da precisão até o
+// servidor subir e PreencherFins gravá-lo, com a regra nova (semana até sexta às 18h).
+func TestPreencherFins(t *testing.T) {
+	a := novoAmbiente(t)
+	fuso := time.FixedZone("BRT", -3*3600)
+	a.relogio(time.Date(2026, 11, 7, 7, 0, 0, 0, fuso))
+	precisao := api.PrecisaoSemana
+	var l api.Lembrete
+	a.chamar("POST", "/lembretes", "", api.NovoLembrete{Texto: "x", Quando: time.Date(2026, 11, 12, 9, 0, 0, 0, fuso), Precisao: &precisao, Organizacao: "Exemplo"}, 201, &l)
+	a.chamar("POST", "/lembretes", "", api.NovoLembrete{Texto: "y", Quando: time.Date(2026, 11, 12, 9, 0, 0, 0, fuso), Organizacao: "Exemplo"}, 201, nil)
+	if _, err := a.db.Exec(`UPDATE lembretes SET fim = NULL, fim_utc = NULL`); err != nil {
+		t.Fatal(err)
+	}
+	a.chamar("GET", "/lembretes/"+l.Id, "", nil, 200, &l)
+	if l.Fim.Format(time.RFC3339) != "2026-11-13T18:00:00-03:00" {
+		t.Fatalf("sem o fim gravado, o padrão: %+v", l)
+	}
+	if n, err := a.servidor.PreencherFins(); err != nil || n != 1 {
+		t.Fatalf("preencher: %d %v (o de hora fica sem fim)", n, err)
+	}
+	var fim sql.NullString
+	if err := a.db.QueryRow(`SELECT fim FROM lembretes WHERE id = 1`).Scan(&fim); err != nil || fim.String != "2026-11-13T18:00:00-03:00" {
+		t.Fatalf("fim gravado: %+v %v", fim, err)
+	}
+	if n, _ := a.servidor.PreencherFins(); n != 0 {
+		t.Fatalf("preencher de novo não deveria achar nada: %d", n)
 	}
 }
