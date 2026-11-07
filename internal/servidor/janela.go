@@ -34,42 +34,71 @@ func (s *Servidor) turnos() Turnos {
 
 func precisaoValida(p api.PrecisaoLembrete) bool {
 	switch p {
-	case api.PrecisaoHora, api.PrecisaoTurno, api.PrecisaoDia, api.PrecisaoSemana, api.PrecisaoMes:
+	case api.PrecisaoHora, api.PrecisaoTurno, api.PrecisaoDia, api.PrecisaoSemana, api.PrecisaoFimDeSemana, api.PrecisaoMes:
 		return true
 	}
 	return false
 }
 
-// janela devolve início e fim da janela de quando: o turno que contém a hora (antes da manhã conta
-// como manhã), o dia, a semana (segunda a domingo) ou o mês inteiro, no fuso do próprio quando; dia,
-// semana e mês começam na manhã do primeiro dia. Na precisão hora, a janela é o instante.
+// janela devolve início e fim (exclusivo) da janela de quando, no fuso do próprio quando:
+//   - turno: o turno que contém a hora (antes da manhã conta como manhã);
+//   - dia: da manhã até a meia-noite;
+//   - semana: de segunda de manhã até sexta no início da noite (18h no padrão); sexta à noite, sábado
+//     e domingo já são da semana seguinte;
+//   - fim_de_semana: de sábado de manhã até a meia-noite de domingo; de segunda a sexta, é o fim de
+//     semana seguinte;
+//   - mes: do dia 1 de manhã até o início da noite do último dia útil (segunda a sexta, sem contar
+//     feriados); depois disso, já é o mês seguinte.
+//
+// Na precisão hora, a janela é o instante.
 func (t Turnos) janela(p api.PrecisaoLembrete, quando time.Time) (inicio, fim time.Time) {
 	dia := time.Date(quando.Year(), quando.Month(), quando.Day(), 0, 0, 0, 0, quando.Location())
-	em := func(minutos int) time.Time { return dia.Add(time.Duration(minutos) * time.Minute) }
+	em := func(d time.Time, minutos int) time.Time { return d.Add(time.Duration(minutos) * time.Minute) }
 	amanha := dia.AddDate(0, 0, 1)
 	switch p {
 	case api.PrecisaoDia:
-		return em(t.Manha), amanha
+		return em(dia, t.Manha), amanha
 	case api.PrecisaoSemana:
 		segunda := dia.AddDate(0, 0, -(int(dia.Weekday())+6)%7)
-		return segunda.Add(time.Duration(t.Manha) * time.Minute), segunda.AddDate(0, 0, 7)
+		if fim := em(segunda.AddDate(0, 0, 4), t.Noite); !quando.Before(fim) {
+			segunda = segunda.AddDate(0, 0, 7)
+		}
+		return em(segunda, t.Manha), em(segunda.AddDate(0, 0, 4), t.Noite)
+	case api.PrecisaoFimDeSemana:
+		sabado := dia.AddDate(0, 0, (int(time.Saturday)-int(dia.Weekday())+7)%7)
+		if dia.Weekday() == time.Sunday {
+			sabado = dia.AddDate(0, 0, -1)
+		}
+		return em(sabado, t.Manha), sabado.AddDate(0, 0, 2)
 	case api.PrecisaoMes:
 		primeiro := dia.AddDate(0, 0, 1-dia.Day())
-		return primeiro.Add(time.Duration(t.Manha) * time.Minute), primeiro.AddDate(0, 1, 0)
+		if fim := em(ultimoDiaUtil(primeiro), t.Noite); !quando.Before(fim) {
+			primeiro = primeiro.AddDate(0, 1, 0)
+		}
+		return em(primeiro, t.Manha), em(ultimoDiaUtil(primeiro), t.Noite)
 	case api.PrecisaoTurno:
 		minutos := quando.Hour()*60 + quando.Minute()
 		switch {
 		case minutos < t.Almoco:
-			return em(t.Manha), em(t.Almoco)
+			return em(dia, t.Manha), em(dia, t.Almoco)
 		case minutos < t.Tarde:
-			return em(t.Almoco), em(t.Tarde)
+			return em(dia, t.Almoco), em(dia, t.Tarde)
 		case minutos < t.Noite:
-			return em(t.Tarde), em(t.Noite)
+			return em(dia, t.Tarde), em(dia, t.Noite)
 		default:
-			return em(t.Noite), amanha
+			return em(dia, t.Noite), amanha
 		}
 	}
 	return quando, quando
+}
+
+// ultimoDiaUtil: a meia-noite do último dia de segunda a sexta do mês de primeiro (o dia 1).
+func ultimoDiaUtil(primeiro time.Time) time.Time {
+	d := primeiro.AddDate(0, 1, -1)
+	for d.Weekday() == time.Saturday || d.Weekday() == time.Sunday {
+		d = d.AddDate(0, 0, -1)
+	}
+	return d
 }
 
 // inicio devolve onde começa o turno nomeado (manha, almoco, tarde ou noite) no dia de dia; outro nome,
@@ -90,7 +119,7 @@ func (t Turnos) inicio(dia time.Time, turno string) time.Time {
 // marcar põe quando no início da janela da precisão e recusa a janela que já acabou.
 func (s *Servidor) marcar(p api.PrecisaoLembrete, quando time.Time) (time.Time, error) {
 	if !precisaoValida(p) {
-		return quando, falha(http.StatusBadRequest, "precisão de lembrete inválida: %q (hora, turno, dia, semana ou mes)", p)
+		return quando, falha(http.StatusBadRequest, "precisão de lembrete inválida: %q (hora, turno, dia, semana, fim_de_semana ou mes)", p)
 	}
 	inicio, fim := s.turnos().janela(p, quando)
 	if p == api.PrecisaoHora {

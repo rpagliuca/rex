@@ -1556,20 +1556,23 @@ export interface components {
         StatusLembrete: "agendado" | "disparado" | "adiado" | "confirmado" | "cancelado";
         /**
          * @description Quão exata é a hora marcada. hora: o Rafael disse data e hora explícitas; o lembrete é
-         *     sensível ao horário e as integrações podem tocar alarme. turno, dia, semana ou mes: vale para
-         *     um turno (manhã, almoço, tarde ou noite), um dia, uma semana (de segunda a domingo) ou um mês
-         *     inteiro; o rex põe `quando` no início da janela, então os da mesma janela disparam juntos e as
-         *     integrações os avisam em lote, sem alarme.
+         *     sensível ao horário e as integrações podem tocar alarme. turno, dia, semana, fim_de_semana ou
+         *     mes: vale para uma janela, e o rex põe `quando` no início dela e grava o `fim`, então os da
+         *     mesma janela disparam juntos e as integrações os avisam em lote, sem alarme. As janelas: o
+         *     turno (manhã, almoço, tarde ou noite); o dia (da manhã à meia-noite); a semana (de segunda de
+         *     manhã até sexta no início da noite; sexta à noite, sábado e domingo já são da semana seguinte);
+         *     o fim de semana (de sábado de manhã até domingo à meia-noite; de segunda a sexta, é o seguinte);
+         *     o mês (do dia 1 de manhã até o início da noite do último dia útil; depois disso, o mês seguinte).
          *
          * @enum {string}
          */
-        PrecisaoLembrete: "hora" | "turno" | "dia" | "semana" | "mes";
+        PrecisaoLembrete: "hora" | "turno" | "dia" | "semana" | "fim_de_semana" | "mes";
         /**
          * @description De quanto em quanto o lembrete se repete (vezes `intervalo`). Cada ocorrência é um lembrete
          *     comum; a próxima é gerada quando a atual dispara ou é confirmada, contada a partir da âncora da
          *     série (adiar uma ocorrência não desloca as seguintes; no mensal e no anual, o dia 31 ou 29/2
          *     cai no último dia do mês). A recorrência não pode ser mais curta que a janela da precisão
-         *     (diária só com hora, turno ou dia; semanal até semana).
+         *     (diária só com hora, turno ou dia; semanal até semana ou fim_de_semana).
          *
          * @enum {string}
          */
@@ -1592,7 +1595,7 @@ export interface components {
             precisao: components["schemas"]["PrecisaoLembrete"];
             /**
              * Format: date-time
-             * @description Fim da janela (do turno ou do dia de `quando`); ausente na precisão hora
+             * @description Fim (exclusivo) da janela, gravado ao salvar: é quando o lembrete vence. Ausente na precisão hora, que vence em `quando`
              */
             fim?: string;
             organizacao: string;
@@ -1649,6 +1652,11 @@ export interface components {
             quando: string;
             /** @description Padrão: hora */
             precisao?: components["schemas"]["PrecisaoLembrete"];
+            /**
+             * Format: date-time
+             * @description Fim da janela, só para trocar o padrão da precisão (semana até domingo, por exemplo); depois do início da janela. Ausente: o padrão
+             */
+            fim?: string;
             organizacao: string;
             tarefa?: string;
             requisito?: string;
@@ -1663,8 +1671,13 @@ export interface components {
             curto?: string;
             /** Format: date-time */
             quando?: string;
-            /** @description Mudar a precisão (ou a hora de um turno ou dia) põe `quando` no início da janela */
+            /** @description Mudar a precisão (ou a hora de um turno ou dia) põe `quando` no início da janela e recalcula o `fim` */
             precisao?: components["schemas"]["PrecisaoLembrete"];
+            /**
+             * Format: date-time
+             * @description Novo fim da janela, para trocar o padrão da precisão; depois do início da janela. Mudar quando ou precisão sem fim volta ao padrão
+             */
+            fim?: string;
             organizacao?: string;
             /** @description Vazio remove a ligação */
             tarefa?: string;

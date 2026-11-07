@@ -78,6 +78,11 @@ func servir(args []string) {
 		i.Conectar(ctx, s)
 		log.Printf("integrações ativas (%s)", *configIntegracoes)
 	}
+	if n, err := s.PreencherFins(); err != nil {
+		log.Fatalf("preencher o fim dos lembretes: %v", err)
+	} else if n > 0 {
+		log.Printf("fim da janela gravado em %d lembretes", n)
+	}
 	go integracao.Agendar(ctx, s, 15*time.Second)
 
 	handler := rotas(s.Handler())

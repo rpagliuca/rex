@@ -67,11 +67,12 @@ const (
 
 // Defines values for PrecisaoLembrete.
 const (
-	PrecisaoDia    PrecisaoLembrete = "dia"
-	PrecisaoHora   PrecisaoLembrete = "hora"
-	PrecisaoMes    PrecisaoLembrete = "mes"
-	PrecisaoSemana PrecisaoLembrete = "semana"
-	PrecisaoTurno  PrecisaoLembrete = "turno"
+	PrecisaoDia         PrecisaoLembrete = "dia"
+	PrecisaoFimDeSemana PrecisaoLembrete = "fim_de_semana"
+	PrecisaoHora        PrecisaoLembrete = "hora"
+	PrecisaoMes         PrecisaoLembrete = "mes"
+	PrecisaoSemana      PrecisaoLembrete = "semana"
+	PrecisaoTurno       PrecisaoLembrete = "turno"
 )
 
 // Defines values for Prioridade.
@@ -155,11 +156,14 @@ type AlteracaoComponente struct {
 // AlteracaoLembrete defines model for AlteracaoLembrete.
 type AlteracaoLembrete struct {
 	// Curto Vazio remove a palavra-chave
-	Curto       *string `json:"curto,omitempty"`
-	Intervalo   *int    `json:"intervalo,omitempty"`
-	Organizacao *string `json:"organizacao,omitempty"`
+	Curto *string `json:"curto,omitempty"`
 
-	// Precisao Mudar a precisão (ou a hora de um turno ou dia) põe `quando` no início da janela
+	// Fim Novo fim da janela, para trocar o padrão da precisão; depois do início da janela. Mudar quando ou precisão sem fim volta ao padrão
+	Fim         *time.Time `json:"fim,omitempty"`
+	Intervalo   *int       `json:"intervalo,omitempty"`
+	Organizacao *string    `json:"organizacao,omitempty"`
+
+	// Precisao Mudar a precisão (ou a hora de um turno ou dia) põe `quando` no início da janela e recalcula o `fim`
 	Precisao *PrecisaoLembrete `json:"precisao,omitempty"`
 	Quando   *time.Time        `json:"quando,omitempty"`
 
@@ -409,7 +413,7 @@ type Lembrete struct {
 	// DisparadoEm Último disparo
 	DisparadoEm *time.Time `json:"disparado_em,omitempty"`
 
-	// Fim Fim da janela (do turno ou do dia de `quando`); ausente na precisão hora
+	// Fim Fim (exclusivo) da janela, gravado ao salvar: é quando o lembrete vence. Ausente na precisão hora, que vence em `quando`
 	Fim *time.Time `json:"fim,omitempty"`
 	Id  string     `json:"id"`
 
@@ -424,10 +428,13 @@ type Lembrete struct {
 	Organizacao string `json:"organizacao"`
 
 	// Precisao Quão exata é a hora marcada. hora: o Rafael disse data e hora explícitas; o lembrete é
-	// sensível ao horário e as integrações podem tocar alarme. turno, dia, semana ou mes: vale para
-	// um turno (manhã, almoço, tarde ou noite), um dia, uma semana (de segunda a domingo) ou um mês
-	// inteiro; o rex põe `quando` no início da janela, então os da mesma janela disparam juntos e as
-	// integrações os avisam em lote, sem alarme.
+	// sensível ao horário e as integrações podem tocar alarme. turno, dia, semana, fim_de_semana ou
+	// mes: vale para uma janela, e o rex põe `quando` no início dela e grava o `fim`, então os da
+	// mesma janela disparam juntos e as integrações os avisam em lote, sem alarme. As janelas: o
+	// turno (manhã, almoço, tarde ou noite); o dia (da manhã à meia-noite); a semana (de segunda de
+	// manhã até sexta no início da noite; sexta à noite, sábado e domingo já são da semana seguinte);
+	// o fim de semana (de sábado de manhã até domingo à meia-noite; de segunda a sexta, é o seguinte);
+	// o mês (do dia 1 de manhã até o início da noite do último dia útil; depois disso, o mês seguinte).
 	Precisao PrecisaoLembrete `json:"precisao"`
 
 	// Quando Hora marcada atual (após adiamentos), com o fuso em que foi pedida
@@ -437,7 +444,7 @@ type Lembrete struct {
 	// comum; a próxima é gerada quando a atual dispara ou é confirmada, contada a partir da âncora da
 	// série (adiar uma ocorrência não desloca as seguintes; no mensal e no anual, o dia 31 ou 29/2
 	// cai no último dia do mês). A recorrência não pode ser mais curta que a janela da precisão
-	// (diária só com hora, turno ou dia; semanal até semana).
+	// (diária só com hora, turno ou dia; semanal até semana ou fim_de_semana).
 	Recorrencia *RecorrenciaLembrete `json:"recorrencia,omitempty"`
 	Requisito   *string              `json:"requisito,omitempty"`
 
@@ -558,6 +565,9 @@ type NovoComponente struct {
 type NovoLembrete struct {
 	// Curto Palavra-chave do lembrete, até 10 caracteres ("ballet", "dentista"); sem ela, as integrações usam o começo do texto
 	Curto *string `json:"curto,omitempty"`
+
+	// Fim Fim da janela, só para trocar o padrão da precisão (semana até domingo, por exemplo); depois do início da janela. Ausente: o padrão
+	Fim *time.Time `json:"fim,omitempty"`
 
 	// Intervalo Padrão: 1
 	Intervalo   *int   `json:"intervalo,omitempty"`
@@ -729,10 +739,13 @@ type Pontos struct {
 }
 
 // PrecisaoLembrete Quão exata é a hora marcada. hora: o Rafael disse data e hora explícitas; o lembrete é
-// sensível ao horário e as integrações podem tocar alarme. turno, dia, semana ou mes: vale para
-// um turno (manhã, almoço, tarde ou noite), um dia, uma semana (de segunda a domingo) ou um mês
-// inteiro; o rex põe `quando` no início da janela, então os da mesma janela disparam juntos e as
-// integrações os avisam em lote, sem alarme.
+// sensível ao horário e as integrações podem tocar alarme. turno, dia, semana, fim_de_semana ou
+// mes: vale para uma janela, e o rex põe `quando` no início dela e grava o `fim`, então os da
+// mesma janela disparam juntos e as integrações os avisam em lote, sem alarme. As janelas: o
+// turno (manhã, almoço, tarde ou noite); o dia (da manhã à meia-noite); a semana (de segunda de
+// manhã até sexta no início da noite; sexta à noite, sábado e domingo já são da semana seguinte);
+// o fim de semana (de sábado de manhã até domingo à meia-noite; de segunda a sexta, é o seguinte);
+// o mês (do dia 1 de manhã até o início da noite do último dia útil; depois disso, o mês seguinte).
 type PrecisaoLembrete string
 
 // Prioridade Obsoleta, substituída pelos pontos de importância; guardada só como histórico.
@@ -765,7 +778,7 @@ type ProjetoDocker struct {
 // comum; a próxima é gerada quando a atual dispara ou é confirmada, contada a partir da âncora da
 // série (adiar uma ocorrência não desloca as seguintes; no mensal e no anual, o dia 31 ou 29/2
 // cai no último dia do mês). A recorrência não pode ser mais curta que a janela da precisão
-// (diária só com hora, turno ou dia; semanal até semana).
+// (diária só com hora, turno ou dia; semanal até semana ou fim_de_semana).
 type RecorrenciaLembrete string
 
 // Recursos defines model for Recursos.

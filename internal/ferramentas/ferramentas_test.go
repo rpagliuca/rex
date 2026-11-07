@@ -414,6 +414,18 @@ func TestLembretesEEsperaPeloMCP(t *testing.T) {
 		t.Fatalf("lembrete de turno: %+v (esperava %s)", dia, inicio)
 	}
 
+	// "O que vence nos próximos 3 dias": o turno de amanhã vence no período, pelo fim da janela.
+	c.chamar("proximos_lembretes", map[string]any{"horas": 72}, &proximos)
+	achou := false
+	for _, x := range proximos.Lembretes {
+		if x.Id == dia.Id {
+			achou = x.VenceNoPeriodo && x.Vence == x.Fim && x.Fim != ""
+		}
+	}
+	if !achou || proximos.Ate == "" {
+		t.Fatalf("turno de amanhã deveria vencer nos próximos 3 dias: %+v", proximos)
+	}
+
 	// Semana em curso: depois da segunda às 8h a janela está aberta, e adiar sem mesmo_na_janela é recusado.
 	var semana ResumoDeLembrete
 	c.chamar("criar_lembrete", map[string]any{"texto": "pagar a Vivo", "quando": time.Now().Format(time.RFC3339), "precisao": "semana", "organizacao": "Exemplo"}, &semana)
