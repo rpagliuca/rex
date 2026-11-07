@@ -105,6 +105,7 @@ func (f *Ferramentas) Servidor() *mcp.Server {
 	mcp.AddTool(s, &mcp.Tool{Name: "criar_requisito", Description: "Cria um requisito, com origem e os requisitos dos quais deriva (a organização vem do primeiro, se omitida)."}, f.criarRequisito)
 	mcp.AddTool(s, &mcp.Tool{Name: "alterar_requisito", Description: "Altera título, descrição, organização ou origem de um requisito. A importância não fica aqui: é dada em pontos na ligação com cada pai (definir_pontos)."}, f.alterarRequisito)
 	mcp.AddTool(s, &mcp.Tool{Name: "derivar_requisito", Description: "Registra que um requisito deriva de outro (um requisito pode derivar de vários). Recusa ciclos. Pontos opcionais; ao derivar de mais um pai, o padrão é 1."}, f.derivarRequisito)
+	mcp.AddTool(s, &mcp.Tool{Name: "remover_derivacao", Description: "Desfaz a ligação de um requisito com um dos pais, para remanejá-lo (por exemplo, deixar cada pai com no máximo 5 derivados). Recusa deixar o requisito sem pai: derive-o do novo pai antes. Os pontos da ligação somem e a fatia dos irmãos que ficam é recalculada."}, f.removerDerivacao)
 	mcp.AddTool(s, &mcp.Tool{Name: "definir_pontos", Description: "Triagem: dá ao requisito os pontos de importância sob um pai. Os pontos só se comparam entre irmãos: a fatia é pontos / soma dos irmãos, e o peso no total soma, sobre os pais, peso do pai × fatia. Sem pontos, volta a não triado (conta como 1)."}, f.definirPontos)
 	mcp.AddTool(s, &mcp.Tool{Name: "marcar_obsoleto", Description: "Marca um requisito como obsoleto, com o motivo (nada é apagado): ele deixa de limitar o estado dos pais e de pesar entre os irmãos, sai da busca e da árvore padrão, e as tarefas abertas dele ficam sinalizadas para decisão. Com reativar, desfaz (marcado por engano)."}, f.marcarObsoleto)
 	mcp.AddTool(s, &mcp.Tool{Name: "vincular_requisito", Description: "Registra que uma tarefa tenta atender um requisito."}, f.vincularRequisito)
@@ -608,6 +609,11 @@ type Derivacao struct {
 	Pontos *int   `json:"pontos,omitempty" jsonschema:"pontos de importância sob este pai (mínimo 1)"`
 }
 
+type RemocaoDeDerivacao struct {
+	Id  string `json:"id" jsonschema:"requisito que deixa de derivar, como R-0002"`
+	Pai string `json:"pai" jsonschema:"pai do qual ele deixa de derivar, como R-0001"`
+}
+
 type PontosDoRequisito struct {
 	Id     string `json:"id" jsonschema:"requisito, como R-0002"`
 	Pai    string `json:"pai" jsonschema:"pai sob o qual valem os pontos, como R-0001"`
@@ -758,6 +764,12 @@ func (f *Ferramentas) alterarRequisito(ctx context.Context, _ *mcp.CallToolReque
 func (f *Ferramentas) derivarRequisito(ctx context.Context, _ *mcp.CallToolRequest, in Derivacao) (*mcp.CallToolResult, api.Requisito, error) {
 	var out api.Requisito
 	resp, err := f.cliente.DerivarRequisito(ctx, in.Id, api.Derivacao{Pai: in.Pai, Pontos: in.Pontos}, f.autorizar)
+	return nil, out, decodificar(resp, err, &out)
+}
+
+func (f *Ferramentas) removerDerivacao(ctx context.Context, _ *mcp.CallToolRequest, in RemocaoDeDerivacao) (*mcp.CallToolResult, api.Requisito, error) {
+	var out api.Requisito
+	resp, err := f.cliente.DesfazerDerivacao(ctx, in.Id, in.Pai, f.autorizar)
 	return nil, out, decodificar(resp, err, &out)
 }
 

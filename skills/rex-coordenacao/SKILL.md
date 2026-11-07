@@ -113,6 +113,8 @@ de "cópia fora do ambiente principal", que deriva de "cumprir a lei de dados".
 - **Boa prática: no máximo 5 requisitos derivados de cada um.** Passou disso, agrupe-os sob
   requisitos intermediários (cada um também uma afirmação testável). Não é bloqueado; o requisito
   só passa a pedir atenção.
+  Para remanejar, `derivar_requisito` do novo pai e depois `remover_derivacao` do antigo: ela recusa
+  deixar o requisito sem pai, e os pontos da ligação removida somem.
 - O `estado` é calculado e limitado pelo menos maduro abaixo (`limitado_por` diz quem). Do menos
   ao mais maduro: `nao_atendido` (tarefa aberta fora de andamento, ou nem tarefa nem execução),
   `em_trabalho`, `nao_validado` (tarefas todas concluídas, sem execução), `validacao_expirada`,
@@ -132,6 +134,7 @@ de "cópia fora do ambiente principal", que deriva de "cumprir a lei de dados".
 - Antes de criar uma origem, `listar_origens`: reaproveite a existente.
 - `criar_requisito` com `origem` e `deriva_de`; sem `organizacao`, herda a do primeiro pai.
 - `derivar_requisito` acrescenta um pai (um requisito pode derivar de vários); ciclos são recusados.
+- `remover_derivacao` tira um pai; recusa deixar o requisito sem nenhum (derive do novo antes).
 - `vincular_requisito` liga uma tarefa ao requisito que ela tenta atender.
 - Registre o pedido verbatim na descrição do requisito: é a evidência de onde ele veio.
 

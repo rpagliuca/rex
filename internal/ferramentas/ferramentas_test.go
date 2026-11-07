@@ -344,6 +344,17 @@ func TestRequisitosPeloMCP(t *testing.T) {
 	if pai.EstadoProprio != api.Validado || pai.Estado != api.NaoAtendido || pai.UltimaExecucao == nil || pai.UltimaExecucao.Id != execucao.Id {
 		t.Fatalf("execução pelo MCP: %+v", pai)
 	}
+	// Remanejar: o filho passa a derivar de outro pai e deixa o antigo; o último pai não sai.
+	var grupo api.Requisito
+	c.chamar("criar_requisito", map[string]any{"titulo": "Cópias fora do ambiente", "deriva_de": []string{pai.Id}}, &grupo)
+	c.chamar("derivar_requisito", map[string]any{"id": filho.Id, "pai": grupo.Id}, &filho)
+	c.chamar("remover_derivacao", map[string]any{"id": filho.Id, "pai": pai.Id}, &filho)
+	if len(filho.DerivaDe) != 1 || filho.DerivaDe[0] != grupo.Id {
+		t.Fatalf("remanejado pelo MCP: %+v", filho.DerivaDe)
+	}
+	if erro := c.chamar("remover_derivacao", map[string]any{"id": filho.Id, "pai": grupo.Id}, nil); !strings.Contains(erro, "sem pai") {
+		t.Fatalf("o último pai devia ser recusado: %s", erro)
+	}
 }
 
 func TestLembretesEEsperaPeloMCP(t *testing.T) {

@@ -657,6 +657,74 @@ func TestPontosDeImportancia(t *testing.T) {
 	}
 }
 
+// Desfazer uma derivação apaga os pontos da ligação, recalcula a fatia dos irmãos que ficam e
+// entra no log de eventos; o último pai não sai (T-0260).
+func TestDesfazerDerivacao(t *testing.T) {
+	a := novoAmbiente(t)
+	geral := "Geral"
+	var zero, x, y, z api.Requisito
+	a.chamar("POST", "/requisitos", "", api.NovoRequisito{Titulo: "Tudo bem", Organizacao: &geral}, 201, &zero)
+	a.chamar("POST", "/requisitos", "", api.NovoRequisito{Titulo: "X"}, 201, &x)
+	a.chamar("POST", "/requisitos", "", api.NovoRequisito{Titulo: "Y"}, 201, &y)
+	a.chamar("POST", "/requisitos", "", api.NovoRequisito{Titulo: "Z"}, 201, &z)
+	pontos := func(r api.Requisito, pai string, p int) {
+		a.chamar("PUT", "/requisitos/"+r.Id+"/derivacoes/"+pai, "", api.Pontos{Pontos: &p}, 200, nil)
+	}
+	pontos(x, zero.Id, 6)
+	pontos(y, zero.Id, 3)
+	pontos(z, zero.Id, 1)
+	// Z ganha outro pai antes de sair do zero.
+	a.chamar("POST", "/requisitos/"+z.Id+"/derivacoes", "", api.Derivacao{Pai: x.Id}, 200, nil)
+
+	a.chamar("DELETE", "/requisitos/"+z.Id+"/derivacoes/"+zero.Id, "", nil, 200, &z)
+	if len(z.DerivaDe) != 1 || z.DerivaDe[0] != x.Id || len(z.Importancia) != 1 || z.Importancia[0].Pai != x.Id {
+		t.Fatalf("Z devia derivar só de X: %+v %+v", z.DerivaDe, z.Importancia)
+	}
+	a.chamar("GET", "/requisitos/"+x.Id, "", nil, 200, &x)
+	a.chamar("GET", "/requisitos/"+y.Id, "", nil, 200, &y)
+	if !perto(x.Importancia[0].Fatia, 6.0/9) || !perto(y.Importancia[0].Fatia, 3.0/9) {
+		t.Fatalf("fatias dos irmãos sem Z: X %v, Y %v", x.Importancia[0].Fatia, y.Importancia[0].Fatia)
+	}
+	var zeroDepois api.Requisito
+	a.chamar("GET", "/requisitos/"+zero.Id, "", nil, 200, &zeroDepois)
+	if slices.Contains(zeroDepois.Derivados, z.Id) {
+		t.Fatalf("Z ainda aparece sob o zero: %+v", zeroDepois.Derivados)
+	}
+
+	// Os pontos da ligação removida somem: derivar de novo volta ao padrão de 1.
+	a.chamar("POST", "/requisitos/"+z.Id+"/derivacoes", "", api.Derivacao{Pai: zero.Id}, 200, &z)
+	for _, imp := range z.Importancia {
+		if imp.Pai == zero.Id && (imp.Pontos == nil || *imp.Pontos != 1) {
+			t.Fatalf("pontos antigos voltaram: %+v", z.Importancia)
+		}
+	}
+	a.chamar("DELETE", "/requisitos/"+z.Id+"/derivacoes/"+zero.Id, "", nil, 200, nil)
+
+	// Último pai, ligação inexistente e o zero.
+	a.chamar("DELETE", "/requisitos/"+z.Id+"/derivacoes/"+x.Id, "", nil, 409, nil)
+	a.chamar("DELETE", "/requisitos/"+z.Id+"/derivacoes/"+y.Id, "", nil, 404, nil)
+	a.chamar("DELETE", "/requisitos/"+zero.Id+"/derivacoes/"+x.Id, "", nil, 404, nil)
+	a.chamar("GET", "/requisitos/"+z.Id, "", nil, 200, &z)
+	if len(z.DerivaDe) != 1 || z.DerivaDe[0] != x.Id {
+		t.Fatalf("a recusa não pode ter mexido na cadeia: %+v", z.DerivaDe)
+	}
+
+	var eventos []api.Evento
+	a.chamar("GET", "/eventos?entidade="+z.Id, "", nil, 200, &eventos)
+	desfeitas := 0
+	for _, e := range eventos {
+		if e.Tipo == "derivacao_desfeita" {
+			desfeitas++
+			if e.Dados["pai"] != zero.Id {
+				t.Fatalf("evento com o pai errado: %+v", e)
+			}
+		}
+	}
+	if desfeitas != 2 {
+		t.Fatalf("eram 2 eventos derivacao_desfeita: %+v", eventos)
+	}
+}
+
 func perto(a float32, b float64) bool { return math.Abs(float64(a)-b) < 1e-4 }
 
 func TestComponentes(t *testing.T) {
