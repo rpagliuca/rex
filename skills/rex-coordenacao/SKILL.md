@@ -115,6 +115,10 @@ de "cópia fora do ambiente principal", que deriva de "cumprir a lei de dados".
   só passa a pedir atenção.
   Para remanejar, `derivar_requisito` do novo pai e depois `remover_derivacao` do antigo: ela recusa
   deixar o requisito sem pai, e os pontos da ligação removida somem.
+  **Reagrupar nunca muda o peso de ninguém em relação ao zero** (decisão do Rafael, 2026-11-07): o
+  intermediário entra sob o pai com a soma dos pontos que os filhos tinham ali (não triado conta 1),
+  e cada filho fica sob o intermediário com os mesmos pontos de antes (`definir_pontos`). Confira o
+  `peso` de um filho antes e depois.
 - O `estado` é calculado e limitado pelo menos maduro abaixo (`limitado_por` diz quem). Do menos
   ao mais maduro: `nao_atendido` (tarefa aberta fora de andamento, ou nem tarefa nem execução),
   `em_trabalho`, `nao_validado` (tarefas todas concluídas, sem execução), `validacao_expirada`,
