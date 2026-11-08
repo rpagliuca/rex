@@ -150,6 +150,20 @@ func TestAvisaAgenteAoSairDeAndamento(t *testing.T) {
 
 }
 
+// Cancelar uma tarefa em andamento é como os outros status: o agente vivo encerra a sessão.
+func TestAvisaAgenteAoCancelar(t *testing.T) {
+	l, f := novoLancador(t)
+	f.sessoes["ideia"] = "T-0010"
+	tarefa := api.Tarefa{Id: "T-0010", Titulo: "Ideia abandonada", Status: api.Cancelada, SessaoAtiva: ptr("S-0004")}
+	l.MudouStatus(servidor.MudancaDeStatus{Tarefa: tarefa, Anterior: api.EmAndamento, Autor: "local"})
+	for _, c := range f.chamadas {
+		if strings.HasPrefix(c, "send-keys -t =ideia: -l") && strings.Contains(c, "cancelada") {
+			return
+		}
+	}
+	t.Fatalf("o agente da tarefa cancelada não foi avisado: %v", f.chamadas)
+}
+
 func TestAvisaAgenteSubidoAntesDaRenomeacao(t *testing.T) {
 	l, f := novoLancador(t)
 	f.sessoes["antigo"] = VariavelTarefaLegada + "=T-0008"

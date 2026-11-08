@@ -69,7 +69,7 @@ func lerTemplate(linha varredor, inst map[int64][]instancia, reqs map[int64][]st
 	x.Instancias = []string{}
 	for _, i := range inst[n] {
 		x.Instancias = append(x.Instancias, i.id)
-		if i.status != api.Concluida && x.InstanciaAberta == nil {
+		if i.status != api.Concluida && i.status != api.Cancelada && x.InstanciaAberta == nil {
 			id := i.id
 			x.InstanciaAberta = &id
 		}

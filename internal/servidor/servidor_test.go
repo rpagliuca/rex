@@ -1001,3 +1001,67 @@ func TestRequisitoObsoleto(t *testing.T) {
 		t.Fatalf("eventos: %v", tipos)
 	}
 }
+
+// Cancelada é a tarefa que não queremos mais fazer: não é trabalho em aberto nem entrega. Para o
+// estado e a atenção do requisito, é como se não existisse; continua listada nele, para o histórico.
+func TestTarefaCancelada(t *testing.T) {
+	a := novoAmbiente(t)
+	org := "Exemplo"
+	var zero, folha api.Requisito
+	a.chamar("POST", "/requisitos", "", api.NovoRequisito{Titulo: "Zero", Organizacao: &org}, 201, &zero)
+	a.chamar("POST", "/requisitos", "", api.NovoRequisito{Titulo: "Folha", Descricao: ptr("como verificar")}, 201, &folha)
+	ler := func() api.Requisito {
+		var r api.Requisito
+		a.chamar("GET", "/requisitos/"+folha.Id, "", nil, 200, &r)
+		return r
+	}
+	mudar := func(tarefa string, status api.StatusTarefa) {
+		a.chamar("PATCH", "/tarefas/"+tarefa, "", api.AlteracaoTarefa{Status: &status}, 200, nil)
+	}
+	semTarefa := func(r api.Requisito) bool {
+		for _, m := range r.Atencao {
+			if m.Motivo == api.SemTarefa {
+				return true
+			}
+		}
+		return false
+	}
+
+	desistida := a.tarefa("Ideia que abandonamos")
+	a.chamar("POST", "/tarefas/"+desistida.Id+"/requisitos", "", api.VinculoRequisito{Requisito: folha.Id}, 200, nil)
+	mudar(desistida.Id, api.Cancelada)
+	r := ler()
+	if r.Estado != api.NaoAtendido || len(r.TarefasAbertas) != 0 || !semTarefa(r) || len(r.Tarefas) != 1 {
+		t.Fatalf("só com tarefa cancelada, o requisito está como sem tarefa: %+v", r)
+	}
+
+	// Ao lado de uma concluída, a cancelada não derruba nem prova nada: decide a concluída.
+	feita := a.tarefa("Parte entregue")
+	a.chamar("POST", "/tarefas/"+feita.Id+"/requisitos", "", api.VinculoRequisito{Requisito: folha.Id}, 200, nil)
+	mudar(feita.Id, api.Concluida)
+	if r := ler(); r.Estado != api.NaoValidado || semTarefa(r) || len(r.TarefasAbertas) != 0 {
+		t.Fatalf("concluída mais cancelada: %+v", r)
+	}
+	a.chamar("POST", "/requisitos/"+folha.Id+"/execucoes", "", api.NovaExecucao{Evidencia: "conferido"}, 201, nil)
+	if r := ler(); r.Estado != api.Validado {
+		t.Fatalf("a cancelada não segura a validação: %s", r.Estado)
+	}
+
+	// A consulta por status a acha.
+	var c api.ConsultaDeTarefas
+	a.chamar("GET", "/busca/tarefas?status=cancelada", "", nil, 200, &c)
+	if len(c.Tarefas) != 1 || c.Tarefas[0].Id != desistida.Id || c.Tarefas[0].Status != api.Cancelada {
+		t.Fatalf("consulta por cancelada: %+v", c)
+	}
+	var tarefa api.Tarefa
+	a.chamar("GET", "/tarefas/"+desistida.Id, "", nil, 200, &tarefa)
+	if tarefa.Status != api.Cancelada {
+		t.Fatalf("status gravado: %s", tarefa.Status)
+	}
+
+	// E volta: cancelar não é definitivo.
+	mudar(desistida.Id, api.AFazer)
+	if r := ler(); r.Estado != api.NaoAtendido || len(r.TarefasAbertas) != 1 {
+		t.Fatalf("reaberta, volta a contar: %+v", r)
+	}
+}

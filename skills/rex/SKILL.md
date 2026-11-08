@@ -16,8 +16,9 @@ Se as ferramentas não estiverem disponíveis, diga isso ao usuário e pare. Nã
 
 ## Conceitos em uma linha
 
-- **Tarefa** (`T-0001`): status `a_fazer`, `em_andamento`, `pausada`, `bloqueada`, `em_validacao` ou
-  `concluida`, e um **resumo para retomar**, escrito no encerramento da última sessão.
+- **Tarefa** (`T-0001`): status `a_fazer`, `em_andamento`, `pausada`, `bloqueada`, `em_validacao`,
+  `concluida` (entregue) ou `cancelada` (não queremos mais fazer), e um **resumo para retomar**,
+  escrito no encerramento da última sessão.
 - **Sessão de Trabalho** (`S-0001`): este chat, com um **agente imutável**. Uma tarefa tem no máximo
   uma sessão ativa; várias sessões, em máquinas diferentes, trabalham nela ao longo do tempo.
 - **Journal**: o seu registro do trabalho, num arquivo da **pasta da sessão**, criada pelo
@@ -122,7 +123,8 @@ Encerre **só** quando o desejo de encerrar for claro:
 Para encerrar, a pedido:
 
 1. Ajuste o status, se o Rafael não disse outro: `em_validacao` (pronto, falta ele validar),
-   `concluida`, `bloqueada` (dependência externa; diga qual no resumo) ou `pausada`.
+   `concluida`, `bloqueada` (dependência externa; diga qual no resumo), `pausada` ou `cancelada` (ele
+   desistiu do trabalho; nunca `concluida` com uma nota no lugar).
 2. Persista o journal (como acima).
 3. `encerrar_sessao` com o **resumo**. Ele vai para cada tarefa da sessão e é a primeira coisa que o
    próximo agente lê. Escreva para quem não viu nada desta conversa:

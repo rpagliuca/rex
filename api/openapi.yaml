@@ -1267,7 +1267,7 @@ components:
         recursos: { $ref: '#/components/schemas/Recursos', description: 'Na recusa de lançamento por falta de memória' }
     StatusTarefa:
       type: string
-      enum: [a_fazer, em_andamento, pausada, bloqueada, em_validacao, concluida]
+      enum: [a_fazer, em_andamento, pausada, bloqueada, em_validacao, concluida, cancelada]
     StatusSessao:
       type: string
       enum: [ativa, encerrada, substituida]

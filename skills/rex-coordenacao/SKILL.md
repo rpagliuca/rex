@@ -23,7 +23,13 @@ Se as ferramentas `mcp__rex__*` não estiverem disponíveis, diga isso ao usuár
 
 `a_fazer` (registrada, sem agente) · `em_andamento` (com agente trabalhando) · `pausada` (o usuário
 decidiu parar) · `bloqueada` (dependência externa) · `em_validacao` (pronta, falta o usuário validar)
-· `concluida`.
+· `concluida` (entregue) · `cancelada` (não queremos mais fazer).
+
+`cancelada` é para o que o Rafael desistiu de fazer ("cancela", "não vamos mais fazer", "esquece
+essa"): nunca use `concluida` com uma nota no lugar dela. Para os requisitos, a tarefa cancelada não
+conta: não é trabalho em aberto nem entrega, e um requisito só com canceladas volta a pedir tarefa.
+Ela continua listada nos requisitos e pode ser reaberta (outro status) se ele mudar de ideia. Se o
+motivo não for óbvio, registre-o na descrição (seção "Cancelamento").
 
 `pausada` e `bloqueada` param do mesmo jeito; muda a causa. Para `bloqueada`, diga ao usuário o que
 bloqueia e o que precisa acontecer para destravar, e registre isso na descrição da tarefa
@@ -68,7 +74,7 @@ diga qual, para quê e com qual modelo e esforço.
   não subiu: avise o usuário.
 - **Quem está trabalhando**: `agentes_ativos` (sessão, nome, agente, tarefas).
 - **Parar**: mude o status da tarefa (`alterar_tarefa`: `pausada`, `bloqueada`, `em_validacao`,
-  `concluida`). O agente encerra a sessão com resumo e fecha o próprio tmux. Nunca mande mensagem
+  `concluida`, `cancelada`). O agente encerra a sessão com resumo e fecha o próprio tmux. Nunca mande mensagem
   ao tmux de outro agente nem o feche.
 - **Retomar**: `lancar_agente` de novo; o agente novo começa pelo resumo da última sessão.
 - **Conversar com um agente vivo** (perguntar, combinar algo): `enviar_a_sessao(sessao, texto)`. A
@@ -78,7 +84,7 @@ diga qual, para quê e com qual modelo e esforço.
 
 ## Pausar, bloquear, validar, concluir ou retomar
 
-- **Parar** (`pausada`, `bloqueada`, `em_validacao`, `concluida`): `alterar_tarefa(id, status)`. Se
+- **Parar** (`pausada`, `bloqueada`, `em_validacao`, `concluida`, `cancelada`): `alterar_tarefa(id, status)`. Se
   havia agente, ele encerra com resumo sozinho. Não mande mensagens a ele nem feche o tmux dele.
 - **Retomar**: `lancar_agente(id)`. Sobe um agente novo, que começa pelo resumo da última sessão.
 - **Tarefa com sessão ativa mas sem agente vivo** (`lancar_agente` recusa com "já tem a sessão

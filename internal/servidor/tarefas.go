@@ -74,7 +74,7 @@ func carregarTarefa(c consultor, n int64) (api.Tarefa, error) {
 
 func statusDeTarefaValido(s api.StatusTarefa) bool {
 	switch s {
-	case api.AFazer, api.EmAndamento, api.Pausada, api.Bloqueada, api.EmValidacao, api.Concluida:
+	case api.AFazer, api.EmAndamento, api.Pausada, api.Bloqueada, api.EmValidacao, api.Concluida, api.Cancelada:
 		return true
 	}
 	return false
@@ -382,12 +382,12 @@ func pesosDasTarefas(c consultor) (map[int64]float32, error) {
 	return pesos, linhas.Err()
 }
 
-// obsoletosDasTarefas: para cada tarefa não concluída, os requisitos obsoletos a que ela ainda está
+// obsoletosDasTarefas: para cada tarefa aberta (nem concluída nem cancelada), os requisitos obsoletos a que ela ainda está
 // ligada; a tarefa pede decisão (concluir, religar ou desvincular).
 func obsoletosDasTarefas(c consultor) (map[int64]*[]string, error) {
 	linhas, err := c.Query(`SELECT tr.tarefa_id, tr.requisito_id FROM tarefa_requisito tr
 		JOIN requisitos r ON r.id = tr.requisito_id JOIN tarefas t ON t.id = tr.tarefa_id
-		WHERE r.obsoleto_em IS NOT NULL AND t.status <> 'concluida' ORDER BY tr.requisito_id`)
+		WHERE r.obsoleto_em IS NOT NULL AND t.status NOT IN ('concluida', 'cancelada') ORDER BY tr.requisito_id`)
 	if err != nil {
 		return nil, err
 	}
