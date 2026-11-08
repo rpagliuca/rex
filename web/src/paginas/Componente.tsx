@@ -5,7 +5,7 @@ import { useAlterarComponente, useComponentes, useOrganizacoes, useRequisitos, u
 import { SelecaoMultipla } from "@/componentes/SelecaoMultipla"
 import { Estado } from "@/componentes/Estado"
 import { ForaDaOrganizacao } from "@/componentes/ForaDaOrganizacao"
-import { EstadoDoRequisito, PesoNoTotal, StatusDaTarefa } from "@/componentes/rotulos"
+import { EstadoDoRequisito, PesoNoTotal, StatusDaTarefa, tarefaEncerrada } from "@/componentes/rotulos"
 import { Secao } from "@/componentes/Secao"
 import { Texto } from "@/componentes/Texto"
 import { Voltar } from "@/componentes/Voltar"
@@ -25,7 +25,7 @@ export function Componente() {
   const req = new Map((requisitos.data ?? []).map((r) => [r.id, r]))
   const tar = new Map((tarefas.data ?? []).map((t) => [t.id, t]))
   const reqs = c.requisitos.filter((r) => req.has(r))
-  const tars = c.tarefas.filter((t) => tar.has(t)).sort((a, b) => Number(tar.get(a)!.status === "concluida") - Number(tar.get(b)!.status === "concluida"))
+  const tars = c.tarefas.filter((t) => tar.has(t)).sort((a, b) => Number(tarefaEncerrada(tar.get(a)!.status)) - Number(tarefaEncerrada(tar.get(b)!.status)))
 
   return (
     <div className="space-y-6">

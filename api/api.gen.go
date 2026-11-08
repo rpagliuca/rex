@@ -110,6 +110,7 @@ const (
 const (
 	AFazer      StatusTarefa = "a_fazer"
 	Bloqueada   StatusTarefa = "bloqueada"
+	Cancelada   StatusTarefa = "cancelada"
 	Concluida   StatusTarefa = "concluida"
 	EmAndamento StatusTarefa = "em_andamento"
 	EmValidacao StatusTarefa = "em_validacao"

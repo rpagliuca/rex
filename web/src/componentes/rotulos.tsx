@@ -11,7 +11,11 @@ export const nomesStatusTarefa: Record<StatusTarefa, string> = {
   bloqueada: "Bloqueada",
   em_validacao: "Em validação",
   concluida: "Concluída",
+  cancelada: "Cancelada",
 }
+
+// Encerrada: concluída (entregue) ou cancelada (não queremos mais fazer). As demais estão abertas.
+export const tarefaEncerrada = (status?: StatusTarefa) => status === "concluida" || status === "cancelada"
 
 const tomDoStatusTarefa: Record<StatusTarefa, Tom> = {
   a_fazer: "neutro",
@@ -20,11 +24,15 @@ const tomDoStatusTarefa: Record<StatusTarefa, Tom> = {
   bloqueada: "perigo",
   em_validacao: "validacao",
   concluida: "sucesso",
+  cancelada: "neutro",
 }
 
 export function StatusDaTarefa({ status }: { status: StatusTarefa }) {
   return (
-    <Badge variant="outline" className={cn("border-transparent", seloDoTom[tomDoStatusTarefa[status]])}>
+    <Badge
+      variant="outline"
+      className={cn("border-transparent", seloDoTom[tomDoStatusTarefa[status]], status === "cancelada" && "line-through")}
+    >
       {nomesStatusTarefa[status]}
     </Badge>
   )

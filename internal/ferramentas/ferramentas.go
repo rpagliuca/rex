@@ -89,7 +89,7 @@ func (f *Ferramentas) Servidor() *mcp.Server {
 	mcp.AddTool(s, &mcp.Tool{Name: "obter_tarefa", Description: descricoes["obter_tarefa"]}, f.obterTarefa)
 	mcp.AddTool(s, &mcp.Tool{Name: "consultar_tarefas", Description: descricoes["consultar_tarefas"]}, f.consultarTarefas)
 	mcp.AddTool(s, &mcp.Tool{Name: "criar_tarefa", Description: descricoes["criar_tarefa"]}, f.criarTarefa)
-	mcp.AddTool(s, &mcp.Tool{Name: "alterar_tarefa", Description: "Altera campos de uma tarefa."}, f.alterarTarefa)
+	mcp.AddTool(s, &mcp.Tool{Name: "alterar_tarefa", Description: "Altera campos de uma tarefa. Status: a_fazer, em_andamento, pausada, bloqueada, em_validacao, concluida (entregue) ou cancelada (não queremos mais fazer: não é entrega nem trabalho em aberto para os requisitos)."}, f.alterarTarefa)
 	mcp.AddTool(s, &mcp.Tool{Name: "historico_da_tarefa", Description: "Lista as sessões que trabalharam na tarefa, da mais recente para a mais antiga."}, f.historicoDaTarefa)
 	mcp.AddTool(s, &mcp.Tool{Name: "iniciar_sessao", Description: "Abre a Sessão de Trabalho deste chat, nas tarefas dadas ou sem nenhuma (vincule depois). Cria a pasta do journal. Recusa tarefa que já tem sessão ativa."}, f.iniciarSessao)
 	mcp.AddTool(s, &mcp.Tool{Name: "sessao_atual", Description: "Mostra a Sessão de Trabalho aberta neste chat."}, f.sessaoAtual)
@@ -335,7 +335,7 @@ type Id struct {
 }
 
 type ConsultaDeTarefas struct {
-	Status      []string `json:"status,omitempty" jsonschema:"um ou mais de a_fazer, em_andamento, pausada, bloqueada, em_validacao, concluida"`
+	Status      []string `json:"status,omitempty" jsonschema:"um ou mais de a_fazer, em_andamento, pausada, bloqueada, em_validacao, concluida, cancelada"`
 	Organizacao string   `json:"organizacao,omitempty" jsonschema:"Cartório, Yes ou Pessoal (ou a da instalação)"`
 	Componente  string   `json:"componente,omitempty" jsonschema:"só deste componente, como C-0001"`
 	Requisito   string   `json:"requisito,omitempty" jsonschema:"só as que tentam atender este requisito, como R-0001"`

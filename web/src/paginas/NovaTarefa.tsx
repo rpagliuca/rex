@@ -64,7 +64,7 @@ export function NovaTarefa() {
           </SelectTrigger>
           <SelectContent>
             {(Object.keys(nomesStatusTarefa) as StatusTarefa[])
-              .filter((s) => s !== "em_andamento")
+              .filter((s) => s !== "em_andamento" && s !== "cancelada")
               .map((s) => (
                 <SelectItem key={s} value={s}>
                   {nomesStatusTarefa[s]}

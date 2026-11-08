@@ -3,7 +3,7 @@ import { type KeyboardEvent, useState } from "react"
 import { Link } from "react-router-dom"
 
 import { type Requisito, type Tarefa, useAlterarRequisito, useDefinirPontos, useTarefas } from "@/api/cliente"
-import { EstadoDoRequisito, PesoNoTotal, percentual, StatusDaTarefa } from "@/componentes/rotulos"
+import { EstadoDoRequisito, PesoNoTotal, percentual, StatusDaTarefa, tarefaEncerrada } from "@/componentes/rotulos"
 import { descendentes } from "@/componentes/trilhas"
 import { cn } from "@/lib/utils"
 
@@ -93,7 +93,7 @@ function ordenarPorFatia(ids: string[], pai: string | undefined, porId: Map<stri
   return [...ids].sort((a, b) => chave(b) - chave(a))
 }
 
-const abertaPrimeiro = (t?: Tarefa) => (t?.status === "concluida" ? 1 : 0)
+const abertaPrimeiro = (t?: Tarefa) => (tarefaEncerrada(t?.status) ? 1 : 0)
 
 function No({
   id,
@@ -198,7 +198,7 @@ function No({
               <li key={tid}>
                 <Link
                   to={`/tarefas/${tid}`}
-                  className={cn("flex items-start gap-2 rounded-md px-1.5 py-1 pl-6 text-sm hover:bg-muted/60", t?.status === "concluida" && "opacity-60")}
+                  className={cn("flex items-start gap-2 rounded-md px-1.5 py-1 pl-6 text-sm hover:bg-muted/60", tarefaEncerrada(t?.status) && "opacity-60")}
                 >
                   <span className="flex-1">
                     <span className="mr-1.5 font-mono text-muted-foreground text-xs">{tid}</span>

@@ -6,13 +6,13 @@ import { Estado } from "@/componentes/Estado"
 import { SelecaoMultipla } from "@/componentes/SelecaoMultipla"
 import { useFiltrosLembrados } from "@/hooks/useFiltrosLembrados"
 import { useOrganizacaoAtual } from "@/hooks/useOrganizacaoAtual"
-import { Data, StatusDaTarefa, nomesStatusTarefa, percentual } from "@/componentes/rotulos"
+import { Data, StatusDaTarefa, nomesStatusTarefa, percentual, tarefaEncerrada } from "@/componentes/rotulos"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 const todosOsStatus = Object.keys(nomesStatusTarefa) as StatusTarefa[]
-const abertas = todosOsStatus.filter((s) => s !== "concluida")
+const abertas = todosOsStatus.filter((s) => !tarefaEncerrada(s))
 
 // Filtros ficam na URL: o link reabre a mesma visão. Status e organização aceitam vários valores; sem
 // filtro, todas. O padrão da primeira visita são as abertas.

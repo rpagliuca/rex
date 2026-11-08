@@ -72,6 +72,9 @@ Duas premissas:
 
 - **Tarefa aberta ligada a um requisito indica que ele não está atendido.**
 - **Todas as tarefas concluídas não garantem que ele está.** Só uma verificação (Execução) prova.
+- **Tarefa cancelada não diz nada.** Cancelada é a que não queremos mais fazer: não é trabalho em
+  aberto nem entrega. Para o estado e a atenção do requisito ela não existe (só com canceladas, ele
+  está sem tarefa), mas continua listada nele, para o histórico.
 
 O estado nunca é escrito à mão. O **estado próprio** vem das tarefas ligadas e da última execução;
 o **estado** é o menos maduro entre o próprio e o de cada requisito abaixo (e as tarefas, a menos

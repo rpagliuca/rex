@@ -1020,7 +1020,7 @@ export interface components {
             recursos?: components["schemas"]["Recursos"];
         };
         /** @enum {string} */
-        StatusTarefa: "a_fazer" | "em_andamento" | "pausada" | "bloqueada" | "em_validacao" | "concluida";
+        StatusTarefa: "a_fazer" | "em_andamento" | "pausada" | "bloqueada" | "em_validacao" | "concluida" | "cancelada";
         /** @enum {string} */
         StatusSessao: "ativa" | "encerrada" | "substituida";
         /** @enum {string} */

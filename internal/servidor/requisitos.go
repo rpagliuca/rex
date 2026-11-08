@@ -282,6 +282,11 @@ func carregarLigacoes(c consultor) (ligacoes, error) {
 			return l, err
 		}
 		l.tarefas[requisito] = append(l.tarefas[requisito], idTarefa(tarefa))
+		if api.StatusTarefa(status) == api.Cancelada {
+			// Não queremos mais fazê-la: fica na lista, para o histórico, mas não é trabalho em aberto
+			// nem entrega; para o estado e a atenção do requisito, é como se não existisse.
+			continue
+		}
 		l.trabalho[requisito] = append(l.trabalho[requisito], tarefaLigada{api.StatusTarefa(status), lerMomento(atualizada)})
 		if api.StatusTarefa(status) != api.Concluida {
 			l.abertas[requisito] = append(l.abertas[requisito], idTarefa(tarefa))
@@ -504,7 +509,7 @@ func (l ligacoes) soPelosDerivados(n int64) bool {
 
 // estadoProprio vem só das tarefas ligadas e da última execução. A tarefa menos madura manda:
 // aberta fora de andamento ⇒ não atendido; em andamento ⇒ em trabalho. Tarefas concluídas não provam
-// nada: sem tarefa aberta, quem decide é a última execução. Sem tarefa e sem execução, não há nada
+// nada (as canceladas nem entram em trabalho): sem tarefa aberta, quem decide é a última execução. Sem tarefa e sem execução, não há nada
 // que indique atendimento: não atendido (ou, com derivados, neutro: decidem eles).
 func (l ligacoes) estadoProprio(n int64) api.EstadoDoRequisito {
 	e := api.Validado
