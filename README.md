@@ -38,7 +38,7 @@ for skill in skills/*/; do ln -sfn "$PWD/$skill" ~/.claude/skills/"$(basename "$
 Ferramentas: `obter_tarefa`, `consultar_tarefas`, `criar_tarefa`, `alterar_tarefa`,
 `historico_da_tarefa`, `iniciar_sessao`, `sessao_atual`, `vincular_tarefa`, `atualizar_journal`, `renomear_sessao`,
 `encerrar_sessao`, `encerrar_sessao_orfa`, `repassar_sessao`, `listar_eventos`, `buscar_requisitos`, `arvore_de_requisitos`, `obter_requisito`, `criar_requisito`,
-`alterar_requisito`, `derivar_requisito`, `remover_derivacao`, `marcar_obsoleto`, `vincular_requisito`, `registrar_execucao`, `listar_componentes`, `criar_componente`, `vincular_componente`, `opcoes_do_lancador`, `lancar_agente`, `recursos_da_maquina`, `descer_item`, `agentes_ativos`, `listar_templates`, `instanciar_template`, `listar_origens`, `criar_origem`, `criar_lembrete`, `proximos_lembretes`, `adiar_lembrete`, `alterar_lembrete`, `confirmar_lembrete`, `cancelar_lembrete`, `lembretes_recorrentes`, `aguardar_resposta`, `retomar_trabalho`,
+`alterar_requisito`, `derivar_requisito`, `remover_derivacao`, `marcar_obsoleto`, `vincular_requisito`, `registrar_execucao`, `listar_componentes`, `criar_componente`, `vincular_componente`, `opcoes_do_lancador`, `lancar_agente`, `recursos_da_maquina`, `descer_item`, `agentes_ativos`, `listar_templates`, `obter_template`, `criar_template`, `alterar_template`, `instanciar_template`, `listar_origens`, `criar_origem`, `criar_lembrete`, `proximos_lembretes`, `adiar_lembrete`, `alterar_lembrete`, `confirmar_lembrete`, `cancelar_lembrete`, `lembretes_recorrentes`, `aguardar_resposta`, `retomar_trabalho`,
 `voz_panorama`, `voz_situacao`, `voz_enviar`, `voz_tecla`.
 
 Sessão órfã é a que continua ativa sem agente vivo (depois de um reboot, por exemplo) e, enquanto

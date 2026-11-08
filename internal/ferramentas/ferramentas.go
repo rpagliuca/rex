@@ -119,6 +119,9 @@ func (f *Ferramentas) Servidor() *mcp.Server {
 	mcp.AddTool(s, &mcp.Tool{Name: "descer_item", Description: descricoes["descer_item"]}, f.descerItem)
 	mcp.AddTool(s, &mcp.Tool{Name: "agentes_ativos", Description: "Sessões de trabalho ativas agora: id, agente, tarefas e início. Para saber quem está trabalhando em quê."}, f.agentesAtivos)
 	mcp.AddTool(s, &mcp.Tool{Name: "listar_templates", Description: "Tarefas pré-moldadas (templates): id, título, organização, periodicidade, se está devida e a instância aberta."}, f.listarTemplates)
+	mcp.AddTool(s, &mcp.Tool{Name: "obter_template", Description: "Obtém uma pré-moldada inteira: descrição (as instruções que cada instância recebe), requisitos, periodicidade e instâncias. Leia antes de alterar_template."}, f.obterTemplate)
+	mcp.AddTool(s, &mcp.Tool{Name: "criar_template", Description: "Cria uma pré-moldada: título, organização, descrição (as instruções que cada instância recebe), periodicidade em dias (omitida: sob demanda) e requisitos."}, f.criarTemplate)
+	mcp.AddTool(s, &mcp.Tool{Name: "alterar_template", Description: "Altera uma pré-moldada; só os campos informados mudam. A descrição e os requisitos substituem os atuais por inteiro (leia antes com obter_template). Periodicidade 0 torna sob demanda. As instâncias já criadas não mudam."}, f.alterarTemplate)
 	mcp.AddTool(s, &mcp.Tool{Name: "instanciar_template", Description: "Cria uma tarefa (a fazer) a partir de uma pré-moldada, com o contexto desta vez no topo da descrição e os requisitos dela. Não sobe agente: para isso, lancar_agente na tarefa criada."}, f.instanciarTemplate)
 	mcp.AddTool(s, &mcp.Tool{Name: "listar_origens", Description: "Lista as origens de requisitos (pessoas e documentos), para reaproveitar em vez de duplicar."}, f.listarOrigens)
 	mcp.AddTool(s, &mcp.Tool{Name: "criar_origem", Description: "Cria uma origem de requisitos: uma pessoa (quem pede) ou um documento (lei, norma, contrato)."}, f.criarOrigem)
@@ -720,9 +723,30 @@ type Templates struct {
 	Templates []ResumoDeTemplate `json:"templates"`
 }
 
+type IdTemplate struct {
+	Template string `json:"template" jsonschema:"pré-moldada, como TP-0001"`
+}
+
 type Instancia struct {
 	Template string `json:"template" jsonschema:"pré-moldada, como TP-0001"`
 	Contexto string `json:"contexto,omitempty" jsonschema:"informações desta vez (link, quem pediu, o que mudou)"`
+}
+
+type NovoTemplate struct {
+	Titulo            string   `json:"titulo" jsonschema:"título da pré-moldada; cada instância recebe o título e a data"`
+	Organizacao       string   `json:"organizacao" jsonschema:"Cartório, Yes ou Pessoal"`
+	Descricao         string   `json:"descricao,omitempty" jsonschema:"instruções que cada instância recebe como descrição (markdown)"`
+	PeriodicidadeDias *int     `json:"periodicidade_dias,omitempty" jsonschema:"a cada quantos dias fica devida; omitida: sob demanda"`
+	Requisitos        []string `json:"requisitos,omitempty" jsonschema:"requisitos que cada instância tenta atender, como R-0001"`
+}
+
+type AlteracaoTemplate struct {
+	Id                string    `json:"id" jsonschema:"pré-moldada, como TP-0001"`
+	Titulo            *string   `json:"titulo,omitempty" jsonschema:"título novo"`
+	Organizacao       *string   `json:"organizacao,omitempty" jsonschema:"Cartório, Yes ou Pessoal"`
+	Descricao         *string   `json:"descricao,omitempty" jsonschema:"descrição nova, inteira (substitui a atual)"`
+	PeriodicidadeDias *int      `json:"periodicidade_dias,omitempty" jsonschema:"a cada quantos dias fica devida; 0 torna sob demanda"`
+	Requisitos        *[]string `json:"requisitos,omitempty" jsonschema:"lista nova de requisitos, inteira (substitui a atual; vazia remove todos)"`
 }
 
 type Origens struct {
@@ -895,6 +919,29 @@ func (f *Ferramentas) listarTemplates(ctx context.Context, _ *mcp.CallToolReques
 func (f *Ferramentas) instanciarTemplate(ctx context.Context, _ *mcp.CallToolRequest, in Instancia) (*mcp.CallToolResult, api.Tarefa, error) {
 	var out api.Tarefa
 	resp, err := f.cliente.InstanciarTemplate(ctx, in.Template, api.PedidoDeInstancia{Contexto: opcional(in.Contexto)}, f.autorizar)
+	return nil, out, decodificar(resp, err, &out)
+}
+
+func (f *Ferramentas) obterTemplate(ctx context.Context, _ *mcp.CallToolRequest, in IdTemplate) (*mcp.CallToolResult, api.Template, error) {
+	var out api.Template
+	resp, err := f.cliente.ObterTemplate(ctx, in.Template)
+	return nil, out, decodificar(resp, err, &out)
+}
+
+func (f *Ferramentas) criarTemplate(ctx context.Context, _ *mcp.CallToolRequest, in NovoTemplate) (*mcp.CallToolResult, api.Template, error) {
+	var out api.Template
+	novo := api.NovoTemplate{Titulo: in.Titulo, Organizacao: in.Organizacao, Descricao: opcional(in.Descricao), PeriodicidadeDias: in.PeriodicidadeDias}
+	if len(in.Requisitos) > 0 {
+		novo.Requisitos = &in.Requisitos
+	}
+	resp, err := f.cliente.CriarTemplate(ctx, novo, f.autorizar)
+	return nil, out, decodificar(resp, err, &out)
+}
+
+func (f *Ferramentas) alterarTemplate(ctx context.Context, _ *mcp.CallToolRequest, in AlteracaoTemplate) (*mcp.CallToolResult, api.Template, error) {
+	var out api.Template
+	alteracao := api.AlteracaoTemplate{Titulo: in.Titulo, Organizacao: in.Organizacao, Descricao: in.Descricao, PeriodicidadeDias: in.PeriodicidadeDias, Requisitos: in.Requisitos}
+	resp, err := f.cliente.AlterarTemplate(ctx, in.Id, alteracao, f.autorizar)
 	return nil, out, decodificar(resp, err, &out)
 }
 

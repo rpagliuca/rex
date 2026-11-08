@@ -52,6 +52,19 @@ agente. Para delegar, use sempre `lancar_agente`.
 Para uma tarefa recorrente, procure antes uma pré-moldada: `listar_templates` e
 `instanciar_template(template, contexto)`; o contexto vai no topo da descrição e o agente dá o título.
 
+## Pré-moldadas (templates)
+
+Uma pré-moldada (`TP-0001`) guarda título, organização, descrição (as instruções que cada instância
+recebe), periodicidade em dias e requisitos. Quando o Rafael pedir para guardar um trabalho
+recorrente como pré-moldada, ou para ajustá-la:
+
+- **Criar**: `criar_template(titulo, organizacao, descricao, periodicidade_dias?, requisitos?)`. Sem
+  periodicidade, ela é sob demanda.
+- **Ler**: `obter_template(template)` traz a descrição inteira; `listar_templates` não traz.
+- **Alterar**: `alterar_template(id, …)`, só com os campos que mudam. Descrição e requisitos
+  substituem os atuais por inteiro: leia antes com `obter_template` e mande o texto completo.
+  Periodicidade 0 torna sob demanda. As instâncias já criadas não mudam.
+
 ## Gerenciar agentes
 
 Cada agente custa tokens e roda sozinho em tmux: suba um só quando o usuário pediu (ou aprovou) e
