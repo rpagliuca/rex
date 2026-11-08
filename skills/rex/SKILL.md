@@ -217,5 +217,5 @@ que ficou gravado. Se algo saiu diferente, corrija com `alterar_lembrete` e avis
 - Não mantenha status de tarefa em outro lugar (pastas, listas, arquivos): o status é o do rex.
 - Não mostre nem procure o token da sessão: ele fica no processo MCP.
 - Nunca feche o tmux de outro agente; só o seu, e só depois de encerrar a sua sessão.
-- Para criar tarefas para outros agentes, pausar ou mover tarefas que não são suas: skill
-  `rex-coordenacao`.
+- Para criar tarefas para outros agentes, pausar ou mover tarefas que não são suas, ou para criar e
+  alterar pré-moldadas (`criar_template`, `alterar_template`): skill `rex-coordenacao`.

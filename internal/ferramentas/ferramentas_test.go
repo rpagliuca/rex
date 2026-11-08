@@ -626,3 +626,52 @@ func TestLembretesRecorrentesPeloMCP(t *testing.T) {
 		t.Fatalf("avulso continua recorrente: %+v", lista)
 	}
 }
+
+func TestTemplatesPeloMCP(t *testing.T) {
+	endereco := novaAPI(t)
+	c := novoChat(t, endereco)
+	var tarefa api.Tarefa
+	c.chamar("criar_tarefa", map[string]any{"titulo": "Arrumar a casa", "organizacao": "Exemplo"}, &tarefa)
+	var sessao api.Sessao
+	c.chamar("iniciar_sessao", map[string]any{"modelo": "Claude Opus 5.5", "tarefas": []string{tarefa.Id}}, &sessao)
+	var r api.Requisito
+	c.chamar("criar_requisito", map[string]any{"titulo": "A casa fica em ordem", "organizacao": "Exemplo"}, &r)
+
+	if msg := c.chamar("criar_template", map[string]any{"titulo": "Faxina", "organizacao": "Exemplo", "periodicidade_dias": 0}, nil); !strings.Contains(msg, "periodicidade") {
+		t.Fatalf("periodicidade 0 na criação deveria recusar: %q", msg)
+	}
+	var tp api.Template
+	c.chamar("criar_template", map[string]any{
+		"titulo": "Faxina", "organizacao": "Exemplo", "descricao": "1. Varrer\n2. Lavar",
+		"periodicidade_dias": 7, "requisitos": []string{r.Id},
+	}, &tp)
+	if tp.Id != "TP-0001" || tp.Descricao != "1. Varrer\n2. Lavar" || tp.PeriodicidadeDias == nil || *tp.PeriodicidadeDias != 7 || len(tp.Requisitos) != 1 {
+		t.Fatalf("template criado: %+v", tp)
+	}
+
+	var lido api.Template
+	c.chamar("obter_template", map[string]any{"template": tp.Id}, &lido)
+	if lido.Descricao != tp.Descricao || lido.Titulo != "Faxina" {
+		t.Fatalf("template lido: %+v", lido)
+	}
+
+	if msg := c.chamar("alterar_template", map[string]any{"id": tp.Id, "titulo": " "}, nil); !strings.Contains(msg, "vazio") {
+		t.Fatalf("título vazio deveria recusar: %q", msg)
+	}
+	var alterado api.Template
+	c.chamar("alterar_template", map[string]any{"id": tp.Id, "descricao": "1. Varrer", "periodicidade_dias": 0, "requisitos": []string{}}, &alterado)
+	if alterado.Titulo != "Faxina" || alterado.Descricao != "1. Varrer" || alterado.PeriodicidadeDias != nil || len(alterado.Requisitos) != 0 {
+		t.Fatalf("template alterado: %+v", alterado)
+	}
+
+	var eventos Eventos
+	c.chamar("listar_eventos", map[string]any{"entidade": tp.Id}, &eventos)
+	if len(eventos.Eventos) != 2 || eventos.Eventos[0].Tipo != "template_criado" || eventos.Eventos[1].Tipo != "template_alterado" {
+		t.Fatalf("eventos do template: %+v", eventos)
+	}
+	for _, e := range eventos.Eventos {
+		if e.Autor != sessao.Id {
+			t.Fatalf("evento do template sem a sessão como autora: %+v", e)
+		}
+	}
+}
