@@ -67,7 +67,7 @@ export function Sessoes() {
               <li key={s.id}>
                 <Link to={`/sessoes/${s.id}`} className="block px-3 py-2.5 hover:bg-muted/50">
                   <div className="flex items-start justify-between gap-2">
-                    <span className="font-medium">
+                    <span className="min-w-0 font-medium [overflow-wrap:anywhere]">
                       <TituloDasTarefas ids={s.tarefas} link={false} />
                     </span>
                     <StatusDaSessao status={s.status} />

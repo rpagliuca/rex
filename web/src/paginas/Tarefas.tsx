@@ -4,6 +4,7 @@ import { Link } from "react-router-dom"
 import { type StatusTarefa, useTarefas } from "@/api/cliente"
 import { Estado } from "@/componentes/Estado"
 import { SelecaoMultipla } from "@/componentes/SelecaoMultipla"
+import { Filtros } from "@/componentes/Filtros"
 import { useFiltrosLembrados } from "@/hooks/useFiltrosLembrados"
 import { useOrganizacaoAtual } from "@/hooks/useOrganizacaoAtual"
 import { Data, StatusDaTarefa, nomesStatusTarefa, percentual, tarefaEncerrada } from "@/componentes/rotulos"
@@ -65,7 +66,10 @@ export function Tarefas() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+      <Filtros
+        ativos={["status", "ordem"].filter((c) => params.has(c)).length + Number(!organizacao && params.has("org"))}
+        filtros={
+          <>
         <SelecaoMultipla
           rotulo="Status"
           opcoes={todosOsStatus.map((s) => ({ valor: s, rotulo: nomesStatusTarefa[s], contagem: contagemStatus[s] ?? 0 }))}
@@ -95,11 +99,14 @@ export function Tarefas() {
             <SelectItem value="atualizacao">Atualização</SelectItem>
           </SelectContent>
         </Select>
+          </>
+        }
+      >
         <Input className="sm:w-56" placeholder="Buscar" value={texto} onChange={(e) => alterar("q", e.target.value || null)} />
         <Button asChild variant="outline">
-          <Link to="/tarefas/nova">Nova tarefa</Link>
+          <Link to="/tarefas/nova"><span className="sm:hidden">Nova</span><span className="hidden sm:inline">Nova tarefa</span></Link>
         </Button>
-      </div>
+      </Filtros>
       <p className="text-muted-foreground text-xs">
         {filtradas.length} de {data?.length ?? 0} tarefas ·{" "}
         <button type="button" className="underline" onClick={() => setParams(new URLSearchParams(), { replace: true })}>
@@ -115,7 +122,7 @@ export function Tarefas() {
               <li key={t.id}>
                 <Link to={`/tarefas/${t.id}`} className="block px-3 py-2.5 hover:bg-muted/50">
                   <div className="flex items-start justify-between gap-2">
-                    <span className="font-medium">{t.titulo}</span>
+                    <span className="min-w-0 font-medium [overflow-wrap:anywhere]">{t.titulo}</span>
                     <StatusDaTarefa status={t.status} />
                   </div>
                   <div className="mt-1 flex flex-wrap gap-x-3 text-muted-foreground text-xs">

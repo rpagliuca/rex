@@ -6,6 +6,7 @@ import { Estado } from "@/componentes/Estado"
 import { FormularioDeTemplate, Periodicidade } from "@/componentes/FormularioDeTemplate"
 import { Data } from "@/componentes/rotulos"
 import { SelecaoMultipla } from "@/componentes/SelecaoMultipla"
+import { Filtros } from "@/componentes/Filtros"
 import { useFiltrosLembrados } from "@/hooks/useFiltrosLembrados"
 import { useOrganizacaoAtual } from "@/hooks/useOrganizacaoAtual"
 import { Badge } from "@/components/ui/badge"
@@ -50,7 +51,10 @@ export function Templates() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+      <Filtros
+        ativos={Number(params.has("tipo")) + Number(!organizacao && params.has("org"))}
+        filtros={
+          <>
         <SelecaoMultipla
           rotulo="Tipo"
           opcoes={tipos.map((t) => ({ ...t, contagem: (data ?? []).filter((x) => tipoDe(x) === t.valor).length }))}
@@ -67,9 +71,12 @@ export function Templates() {
           atalhos={[{ rotulo: "Todas", valores: organizacoes }]}
         />
         )}
+          </>
+        }
+      >
         <Input className="sm:w-56" placeholder="Buscar" value={texto} onChange={(e) => alterar("q", e.target.value || null)} />
         <NovoTemplate />
-      </div>
+      </Filtros>
       <p className="text-muted-foreground text-xs">
         {filtrados.length} de {data?.length ?? 0} tarefas pré-moldadas ·{" "}
         <button type="button" className="underline" onClick={() => setParams(new URLSearchParams(), { replace: true })}>
@@ -116,7 +123,7 @@ function NovoTemplate() {
   return (
     <Dialog open={aberto} onOpenChange={setAberto}>
       <DialogTrigger asChild>
-        <Button variant="outline">Nova pré-moldada</Button>
+        <Button variant="outline"><span className="sm:hidden">Nova</span><span className="hidden sm:inline">Nova pré-moldada</span></Button>
       </DialogTrigger>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         {aberto && (

@@ -8,6 +8,7 @@ import { GrafoDeRequisitos, recortar } from "@/componentes/GrafoDeRequisitos"
 import { Estado } from "@/componentes/Estado"
 import { nomesEstadoDoRequisito, nomesMotivoDeAtencao, ordemDosEstados } from "@/componentes/rotulos"
 import { SelecaoMultipla } from "@/componentes/SelecaoMultipla"
+import { Filtros } from "@/componentes/Filtros"
 import { useFiltrosLembrados } from "@/hooks/useFiltrosLembrados"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -79,7 +80,10 @@ export function Requisitos() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+      <Filtros
+        ativos={["estado", "triagem", "comp", "origem", "atencao"].filter((c) => params.has(c)).length + Number(filtraOrg)}
+        filtros={
+          <>
         <SelecaoMultipla
           rotulo="Estado"
           opcoes={ordemDosEstados.map((e) => ({ valor: e, rotulo: nomesEstadoDoRequisito[e], contagem: contagem(e) }))}
@@ -136,11 +140,14 @@ export function Requisitos() {
             { rotulo: "Qualquer motivo", valores: motivos },
           ]}
         />
+          </>
+        }
+      >
         <Input className="sm:w-56" placeholder="Buscar" value={texto} onChange={(e) => alterar("q", e.target.value || null)} />
         <Button asChild variant="outline">
-          <Link to="/requisitos/novo">Novo requisito</Link>
+          <Link to="/requisitos/novo"><span className="sm:hidden">Novo</span><span className="hidden sm:inline">Novo requisito</span></Link>
         </Button>
-      </div>
+      </Filtros>
       <p className="text-muted-foreground text-xs">
         {recorte
           ? `${recorte.casam.size} de ${data?.length ?? 0} requisitos, sob o caminho desde o zero (esmaecido) · clique para abrir`

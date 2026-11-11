@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Plus } from "lucide-react"
+import { Building2, Plus } from "lucide-react"
 import { Navigate, NavLink, Route, Routes, useLocation } from "react-router-dom"
 
 import { NovaTarefa } from "@/paginas/NovaTarefa"
@@ -11,7 +11,7 @@ import { Sessao } from "@/paginas/Sessao"
 import { Sessoes } from "@/paginas/Sessoes"
 import { Componente } from "@/paginas/Componente"
 import { Componentes } from "@/paginas/Componentes"
-import { Assinatura } from "@/componentes/Logotipo"
+import { Assinatura, Logotipo } from "@/componentes/Logotipo"
 import { Lembretes } from "@/paginas/Lembretes"
 import { Template } from "@/paginas/Template"
 import { Templates } from "@/paginas/Templates"
@@ -24,7 +24,7 @@ import { Tarefas } from "@/paginas/Tarefas"
 import { cn } from "@/lib/utils"
 
 const aba = ({ isActive }: { isActive: boolean }) =>
-  cn("rounded-md px-3 py-1.5 text-sm", isActive ? "bg-muted font-medium" : "text-muted-foreground hover:text-foreground")
+  cn("rounded-md px-1.5 py-1.5 text-sm sm:px-3", isActive ? "bg-muted font-medium" : "text-muted-foreground hover:text-foreground")
 
 export default function App() {
   const templates = useTemplates()
@@ -32,9 +32,11 @@ export default function App() {
   const tocando = (useLembretes().data ?? []).filter((l) => l.status === "disparado").length
   return (
     <div className="mx-auto max-w-4xl px-4 py-4">
-      <nav className="mb-6 flex flex-wrap items-center gap-1 border-b pb-3">
-        <NavLink to="/" className="mr-3 flex items-center" aria-label="rex">
-          <Assinatura className="h-7 w-auto" />
+      {/* No celular a navbar cabe numa linha: só o símbolo, abas mais justas, Sessões no "+" e a organização como ícone. */}
+      <nav className="mb-6 flex flex-wrap items-center gap-0.5 border-b pb-3 sm:gap-1">
+        <NavLink to="/" className="mr-1 flex items-center sm:mr-3" aria-label="rex">
+          <Logotipo className="h-7 w-auto sm:hidden" />
+          <Assinatura className="hidden h-7 w-auto sm:block" />
         </NavLink>
         <NavLink to="/requisitos" className={aba}>
           Requisitos
@@ -50,7 +52,7 @@ export default function App() {
             </span>
           )}
         </NavLink>
-        <NavLink to="/sessoes" className={aba}>
+        <NavLink to="/sessoes" className={(e) => cn(aba(e), "hidden sm:block")}>
           Sessões
         </NavLink>
         <MenuMais devidos={devidos} />
@@ -98,6 +100,9 @@ function MenuMais({ devidos }: { devidos: number }) {
         )}
       </PopoverTrigger>
       <PopoverContent align="start" className="flex w-56 flex-col gap-0.5 p-1">
+        <NavLink to="/sessoes" className={(e) => cn(item(e), "sm:hidden")} onClick={() => setAberto(false)}>
+          Sessões
+        </NavLink>
         <NavLink to="/templates" className={item} onClick={() => setAberto(false)}>
           Tarefas Pré-moldadas
           {devidos > 0 && (
@@ -124,8 +129,15 @@ function EscolherOrganizacao() {
   const comZero = (organizacoes.data ?? []).filter((o) => o.zero || o.nome === organizacao)
   return (
     <Select value={organizacao || "_todas"} onValueChange={(v) => escolher(v === "_todas" ? "" : v)}>
-      <SelectTrigger className={cn("ml-auto h-8 w-auto gap-2", organizacao && "border-primary font-medium")}>
-        <SelectValue />
+      <SelectTrigger
+        aria-label="Organização"
+        title={organizacao || "Todas as organizações"}
+        className={cn("ml-auto h-8 w-auto gap-2 px-2 sm:px-3 [&>svg:last-child]:hidden sm:[&>svg:last-child]:block", organizacao && "border-primary font-medium")}
+      >
+        <Building2 className={cn("sm:hidden", organizacao && "text-primary")} />
+        <span className="hidden sm:contents">
+          <SelectValue />
+        </span>
       </SelectTrigger>
       <SelectContent align="end">
         <SelectItem value="_todas">Todas as organizações</SelectItem>
