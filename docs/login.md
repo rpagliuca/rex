@@ -50,6 +50,21 @@ usuário de teste: o escopo é só `openid email`.
 
 `/login/sair` apaga o cookie.
 
+## Integrações por token
+
+Um serviço de fora (o Lambda que mostra os lembretes no iPhone) não tem como fazer o login pelo
+Google. Para ele, `integracoes` libera um token próprio, só nas rotas dos lembretes:
+
+```json
+"integracoes": [{"nome": "iphone", "token_ambiente": "REX_TOKEN_INTEGRACAO_IPHONE"}]
+```
+
+- O token (≥ 32 caracteres) fica na variável nomeada e vai no cabeçalho `X-Rex-Integracao`.
+- Abre só `GET` e `PATCH /lembretes/{id}`, `POST /lembretes/{id}/adiamento` e
+  `POST /lembretes/{id}/confirmacao`. Qualquer outra rota com o token é `403`; token errado, `401`.
+- Os eventos ficam com o `nome` da integração como autor (cabeçalho `X-Rex-Autor`, que o login apaga
+  de toda requisição que chega e só põe nas que passaram pelo token).
+
 ## Como funciona
 
 OAuth 2.0 com código e PKCE. State e verificador vão num cookie curto e assinado, restrito a
