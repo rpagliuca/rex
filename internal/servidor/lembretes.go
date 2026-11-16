@@ -563,36 +563,89 @@ func (s *Servidor) AdiarLembrete(w http.ResponseWriter, r *http.Request, id api.
 		if err := final(atual); err != nil {
 			return err
 		}
+		campos := 0
+		for _, presente := range []bool{adiamento.Ate != nil, adiamento.Minutos != nil, adiamento.Para != nil} {
+			if presente {
+				campos++
+			}
+		}
+		if campos > 1 {
+			return falha(http.StatusBadRequest, "informe só um de ate, minutos ou para")
+		}
+		precisao := atual.Precisao
 		var quando time.Time
 		switch {
-		case adiamento.Ate != nil && adiamento.Minutos != nil:
-			return falha(http.StatusBadRequest, "informe ate ou minutos, não os dois")
 		case adiamento.Ate != nil:
 			quando = *adiamento.Ate
 		case adiamento.Minutos != nil && *adiamento.Minutos >= 1:
-			// Mantém o fuso em que o lembrete foi pedido.
-			quando = s.agora().Add(time.Duration(*adiamento.Minutos) * time.Minute).In(atual.Quando.Location()).Truncate(time.Second)
+			quando = baseDoAdiamento(atual, s.agora()).Add(time.Duration(*adiamento.Minutos) * time.Minute).Truncate(time.Second)
+		case adiamento.Para != nil:
+			var err error
+			quando, precisao, err = s.adiarPara(atual, *adiamento.Para)
+			if err != nil {
+				return err
+			}
 		default:
-			return falha(http.StatusBadRequest, "informe ate ou minutos (pelo menos 1)")
+			return falha(http.StatusBadRequest, "informe ate, minutos (pelo menos 1) ou para")
 		}
 		if !quando.After(s.agora()) {
 			return falha(http.StatusBadRequest, "a nova hora precisa estar no futuro: %s", quando.Format(time.RFC3339))
 		}
 		// A janela vai junto: o fim volta ao padrão da precisão a partir da nova hora.
-		fim, fimUTC, err := s.fimDoLembrete(atual.Precisao, quando, nil)
+		fim, fimUTC, err := s.fimDoLembrete(precisao, quando, nil)
 		if err != nil {
 			return err
 		}
-		if _, err := tx.Exec(`UPDATE lembretes SET status = ?, quando = ?, quando_utc = ?, fim = ?, fim_utc = ?, adiamentos = adiamentos + 1, atualizado_em = ? WHERE id = ?`,
-			string(api.Adiado), quando.Format(time.RFC3339), utc(quando), fim, fimUTC, s.momento(), n); err != nil {
+		if _, err := tx.Exec(`UPDATE lembretes SET status = ?, quando = ?, quando_utc = ?, precisao = ?, fim = ?, fim_utc = ?, adiamentos = adiamentos + 1, atualizado_em = ? WHERE id = ?`,
+			string(api.Adiado), quando.Format(time.RFC3339), utc(quando), string(precisao), fim, fimUTC, s.momento(), n); err != nil {
 			return err
 		}
 		dados := map[string]any{"quando": quando.Format(time.RFC3339)}
+		if precisao != atual.Precisao {
+			dados["precisao"] = precisao
+		}
 		if fim != nil {
 			dados["fim"] = fim
 		}
 		return s.registrarEvento(tx, quem, atual.Id, "lembrete_adiado", dados)
 	})
+}
+
+// baseDoAdiamento: adiar conta da hora marcada enquanto ela não passou (adiar o compromisso, não
+// antecipá-lo), e do agora depois que passou. Sempre no fuso em que o lembrete foi pedido.
+func baseDoAdiamento(atual api.Lembrete, agora time.Time) time.Time {
+	if atual.Quando.After(agora) {
+		return atual.Quando
+	}
+	return agora.In(atual.Quando.Location())
+}
+
+// adiarPara calcula a nova hora e a precisão de "próximo turno" e "amanhã", a partir da mesma base
+// do adiamento por minutos. Fora de recorrente, o lembrete vira de turno ou de dia (sem alarme); num
+// recorrente a precisão fica, porque a próxima ocorrência a copia.
+func (s *Servidor) adiarPara(atual api.Lembrete, para api.AdiamentoPara) (time.Time, api.PrecisaoLembrete, error) {
+	base := baseDoAdiamento(atual, s.agora())
+	recorrente := atual.Recorrencia != nil && *atual.Recorrencia != ""
+	t := s.turnos()
+	switch para {
+	case api.ProximoTurno:
+		_, fimDoTurno := t.janela(api.PrecisaoTurno, base)
+		inicio, _ := t.janela(api.PrecisaoTurno, fimDoTurno)
+		if recorrente {
+			return inicio, atual.Precisao, nil
+		}
+		return inicio, api.PrecisaoTurno, nil
+	case api.Amanha:
+		if recorrente {
+			h := atual.Quando.In(base.Location())
+			d := base.AddDate(0, 0, 1)
+			return time.Date(d.Year(), d.Month(), d.Day(), h.Hour(), h.Minute(), h.Second(), 0, base.Location()), atual.Precisao, nil
+		}
+		d := base.AddDate(0, 0, 1)
+		inicio, _ := t.janela(api.PrecisaoDia, time.Date(d.Year(), d.Month(), d.Day(), 12, 0, 0, 0, base.Location()))
+		return inicio, api.PrecisaoDia, nil
+	}
+	return time.Time{}, "", falha(http.StatusBadRequest, "para inválido: %q (proximo_turno ou amanha)", para)
 }
 
 func (s *Servidor) CancelarLembrete(w http.ResponseWriter, r *http.Request, id api.Id) {
