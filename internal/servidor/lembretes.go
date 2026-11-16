@@ -17,7 +17,7 @@ func idLembrete(n int64) string { return idCom("L", n) }
 const toleranciaDeDisparo = time.Minute
 
 const colunasLembrete = `id, texto, curto, quando, precisao, organizacao, tarefa_id, requisito_id, status, autor, disparado_em, atrasado,
-	adiamentos, confirmado_em, criado_em, atualizado_em, recorrencia, intervalo, ocorrencia, serie_id, seguinte_id, fim`
+	adiamentos, confirmado_em, criado_em, atualizado_em, recorrencia, intervalo, ocorrencia, serie_id, seguinte_id, fim, aviso_max`
 
 // pendente: os status que ainda pedem atenção.
 var statusPendentes = []api.StatusLembrete{api.Agendado, api.Adiado, api.Disparado}
@@ -32,7 +32,7 @@ func (s *Servidor) lerLembrete(linha varredor) (api.Lembrete, error) {
 	var intervalo, ocorrencia int
 	var atrasado bool
 	if err := linha.Scan(&n, &x.Texto, &curto, &quando, &precisao, &x.Organizacao, &tarefa, &requisito, &status, &x.Autor, &disparado,
-		&atrasado, &x.Adiamentos, &confirmado, &criado, &atualizado, &recorrencia, &intervalo, &ocorrencia, &serie, &seguinte, &fim); err != nil {
+		&atrasado, &x.Adiamentos, &confirmado, &criado, &atualizado, &recorrencia, &intervalo, &ocorrencia, &serie, &seguinte, &fim, &x.AvisoMax); err != nil {
 		return x, err
 	}
 	x.Id = idLembrete(n)
@@ -247,6 +247,21 @@ func curtoDoLembrete(c *string) (any, error) {
 	return v, nil
 }
 
+// avisoPadrao: sem grau informado, o lembrete de hora marcada avisa sem som (ilha, notificação
+// silenciosa e lâmpada), nunca com alarme.
+const avisoPadrao = 2
+
+// avisoDoLembrete confere o grau de aviso: 1 (só a ilha), 2 (sem som) ou 3 (com som).
+func avisoDoLembrete(a *int) (int, error) {
+	if a == nil {
+		return avisoPadrao, nil
+	}
+	if *a < 1 || *a > 3 {
+		return 0, falha(http.StatusBadRequest, "aviso_max é 1 (só a ilha), 2 (sem som) ou 3 (com som), não %d", *a)
+	}
+	return *a, nil
+}
+
 // inserirLembrete grava um lembrete agendado e o evento; não confere se a hora já passou (o
 // agendador o dispara como atrasado).
 func (s *Servidor) inserirLembrete(tx *sql.Tx, quem string, novo api.NovoLembrete) (api.Lembrete, error) {
@@ -264,6 +279,10 @@ func (s *Servidor) inserirLembrete(tx *sql.Tx, quem string, novo api.NovoLembret
 		precisao = *novo.Precisao
 	}
 	curto, err := curtoDoLembrete(novo.Curto)
+	if err != nil {
+		return api.Lembrete{}, err
+	}
+	aviso, err := avisoDoLembrete(novo.AvisoMax)
 	if err != nil {
 		return api.Lembrete{}, err
 	}
@@ -290,9 +309,9 @@ func (s *Servidor) inserirLembrete(tx *sql.Tx, quem string, novo api.NovoLembret
 	}
 	agora := s.momento()
 	res, err := tx.Exec(`INSERT INTO lembretes (texto, curto, quando, quando_utc, precisao, organizacao, tarefa_id, requisito_id, autor, criado_em, atualizado_em,
-		recorrencia, intervalo, serie_inicio, fim, fim_utc)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, strings.TrimSpace(novo.Texto), curto, novo.Quando.Format(time.RFC3339), utc(novo.Quando),
-		string(precisao), strings.TrimSpace(novo.Organizacao), tarefa, requisito, quem, agora, agora, recorrencia, intervalo, serieInicio, fim, fimUTC)
+		recorrencia, intervalo, serie_inicio, fim, fim_utc, aviso_max)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, strings.TrimSpace(novo.Texto), curto, novo.Quando.Format(time.RFC3339), utc(novo.Quando),
+		string(precisao), strings.TrimSpace(novo.Organizacao), tarefa, requisito, quem, agora, agora, recorrencia, intervalo, serieInicio, fim, fimUTC, aviso)
 	if err != nil {
 		return api.Lembrete{}, err
 	}
@@ -309,7 +328,7 @@ func (s *Servidor) inserirLembrete(tx *sql.Tx, quem string, novo api.NovoLembret
 	if err != nil {
 		return criado, err
 	}
-	dados := map[string]any{"quando": criado.Quando, "precisao": criado.Precisao}
+	dados := map[string]any{"quando": criado.Quando, "precisao": criado.Precisao, "aviso_max": criado.AvisoMax}
 	if criado.Fim != nil {
 		dados["fim"] = criado.Fim.Format(time.RFC3339)
 	}
@@ -403,6 +422,13 @@ func (s *Servidor) AlterarLembrete(w http.ResponseWriter, r *http.Request, id ap
 				return err
 			}
 			definir("curto", curto)
+		}
+		if alteracao.AvisoMax != nil {
+			aviso, err := avisoDoLembrete(alteracao.AvisoMax)
+			if err != nil {
+				return err
+			}
+			definir("aviso_max", aviso)
 		}
 		if alteracao.Organizacao != nil {
 			if vazio(*alteracao.Organizacao) {

@@ -134,6 +134,14 @@ Todo lembrete tem `precisao`:
 O `POST /lembretes` sem `precisao` assume `hora`; a ferramenta `criar_lembrete` do MCP exige que o
 agente escolha, pelo que o usuário disse.
 
+### Grau de aviso: `aviso_max`
+
+Só na precisão `hora`: até onde o consumidor escala antes da hora. `1` só um aviso discreto (a ilha
+do iPhone); `2` também um aviso visual sem som (notificação silenciosa, lâmpada), o padrão; `3`
+também o alarme com som. Os de outra precisão guardam o grau, mas nunca tocam. Adiar mantém o grau,
+e a próxima ocorrência de um recorrente o herda. Alterar o grau gera `lembrete_alterado` com
+`aviso_max`. A ferramenta do MCP avisa (sem recusar) quem grava grau 3 entre 23h e 7h.
+
 ### Palavra-chave: `curto`
 
 Opcional, até 10 caracteres: a palavra que identifica o compromisso ("ballet", "dentista"), para os

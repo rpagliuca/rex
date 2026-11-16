@@ -153,10 +153,10 @@ var descricoes = map[string]string{
 	"descer_item":           "Desce um item de recursos_da_maquina (como steam, platform-simulation-environment ou agente-navegador) para liberar memória: pausa a tarefa dele, cujo agente encerra e leva os filhos junto, ou roda o comando de fechar. Só com o sim do Rafael para aquele item, e nunca para fechar algo que outro agente esteja usando: a recusa (lock com dono, por exemplo) é a resposta, diga-a a ele. Subir não tem ferramenta: é lancar_agente ou o jeito de sempre de cada coisa.",
 	"encerrar_sessao_orfa":  "Encerra a sessão de trabalho que continua ativa sem agente vivo (depois de um reboot, por exemplo), para a tarefa poder ganhar outra: depois, lancar_agente. O rex confere o tmux e os processos do chat e recusa se não puder provar que o agente morreu; a recusa é a resposta, nunca a contorne. O resumo da tarefa ganha um aviso com o journal da sessão e mantém o que tinha; o status da tarefa não muda. sem_agente em voz_panorama só diz que não há tmux, não que está órfã.",
 	"recursos_da_maquina":   "Memória e CPU da máquina dos agentes, medidas agora (~2 s): RAM disponível e o mínimo para lançar agente, sessões do Claude Code abertas (com a RAM de cada uma e o que esperam do Rafael), os itens que se pode descer (descer_item) com o que cada um libera, containers do docker por projeto e os 15 maiores processos por RAM e por CPU (nome e pid). resumo traz o essencial em poucas linhas. Para \"cabe mais um agente?\", \"o que está pesando?\" ou um processo preso consumindo CPU.",
-	"criar_lembrete":        "Agenda um lembrete para o Rafael, solto ou ligado a uma tarefa ou requisito. A precisão é obrigatória e vem do que o Rafael disse: hora só quando ele deu data e hora explícitas (\"às 14h\", \"9:30\"); turno para \"de manhã\", \"no almoço\", \"à tarde\", \"à noite\"; dia para \"amanhã\", \"sexta\", \"dia 30\" sem hora; semana para \"semana que vem\", \"na semana do dia 12\" (vence na sexta às 18h; pedida no sábado ou domingo, é a semana seguinte); fim_de_semana para \"no fim de semana\", \"sábado ou domingo\" (sábado e domingo); mes para \"em abril\", \"mês que vem\" (vence no último dia útil às 18h). Nunca invente uma hora: fora de hora, mande qualquer hora dentro da janela e o rex a troca pelo início dela e grava o fim (devolvido em fim). fim só quando o Rafael pedir outro prazo que o padrão. Só hora toca alarme; turno, dia, semana, fim de semana e mês são avisados em lote, sem som. Preencha curto com a palavra-chave do compromisso (até 10 caracteres, como ballet ou dentista): é o que cabe na ilha do iPhone. Para \"todo dia 1º\", \"toda segunda\", \"todo ano\", recorrencia (diaria, semanal, mensal ou anual, com intervalo para \"a cada 2 semanas\"): quando é a primeira ocorrência, e cada uma é um lembrete comum; a próxima sai sozinha quando a atual dispara ou é confirmada.",
+	"criar_lembrete":        "Agenda um lembrete para o Rafael, solto ou ligado a uma tarefa ou requisito. A precisão é obrigatória e vem do que o Rafael disse: hora só quando ele deu data e hora explícitas (\"às 14h\", \"9:30\"); turno para \"de manhã\", \"no almoço\", \"à tarde\", \"à noite\"; dia para \"amanhã\", \"sexta\", \"dia 30\" sem hora; semana para \"semana que vem\", \"na semana do dia 12\" (vence na sexta às 18h; pedida no sábado ou domingo, é a semana seguinte); fim_de_semana para \"no fim de semana\", \"sábado ou domingo\" (sábado e domingo); mes para \"em abril\", \"mês que vem\" (vence no último dia útil às 18h). Nunca invente uma hora: fora de hora, mande qualquer hora dentro da janela e o rex a troca pelo início dela e grava o fim (devolvido em fim). fim só quando o Rafael pedir outro prazo que o padrão. Só hora toca alarme; turno, dia, semana, fim de semana e mês são avisados em lote, sem som. Na precisão hora, aviso_max é o grau: 1 só a ilha do iPhone, 2 sem som (padrão: ilha, notificação silenciosa e lâmpada), 3 com som (também alarme 5 min antes); 3 só quando o Rafael pedir som. Se o retorno trouxer alerta (alarme com som entre 23h e 7h), repasse-o ao Rafael. Preencha curto com a palavra-chave do compromisso (até 10 caracteres, como ballet ou dentista): é o que cabe na ilha do iPhone. Para \"todo dia 1º\", \"toda segunda\", \"todo ano\", recorrencia (diaria, semanal, mensal ou anual, com intervalo para \"a cada 2 semanas\"): quando é a primeira ocorrência, e cada uma é um lembrete comum; a próxima sai sozinha quando a atual dispara ou é confirmada.",
 	"proximos_lembretes":    "Lembretes que pedem atenção: os disparados e os que começam ou vencem nas próximas horas (padrão 24; \"próximos 3 dias\" é 72, máximo 168), com a hora de agora (agora) e o fim do período (ate). Cada um traz a organização, quando (início da janela), fim (fim da janela, gravado ao salvar; ausente na precisão hora), vence (o fim, ou a hora na precisão hora), vence_no_periodo e situacao. \"O que vence hoje / até amanhã / nos próximos N dias\" são os de situacao vencido mais todos os de vence_no_periodo, de qualquer precisão (hora, turno, dia, semana, fim de semana, mês): liste todos. A lista vem nesta ordem: vencido (a janela acabou sem confirmação: é o atrasado), os que vencem no período (por vence), os na_janela que vencem depois do período e os futuros. Disparado não é vencido: o status disparado só diz que o aviso saiu. As janelas disparam no início (dia às 8h, semana na segunda às 8h, fim de semana no sábado às 8h, mês no dia 1 às 8h) e valem até o fim: dia até a meia-noite, semana até sexta às 18h, fim de semana até domingo à meia-noite, mês até o último dia útil às 18h. Na precisão hora não há janela: vencido assim que a hora passa.",
 	"adiar_lembrete":        "Reagenda um lembrete para daqui a N minutos ou para uma hora (RFC 3339). Para pedidos em lote (\"os de ontem, joga para amanhã\"), adie só os de situacao vencido em proximos_lembretes. Lembrete de semana, fim de semana ou mês com a janela ainda aberta é recusado, porque ainda vale: só com mesmo_na_janela, quando o Rafael pediu aquele lembrete pelo nome.",
-	"alterar_lembrete":      "Corrige texto, palavra-chave (curto), hora, precisão, fim da janela, organização, ligações ou recorrência de um lembrete, mantendo o id: nunca cancele e recrie para isso. Só os campos informados mudam; tarefa ou requisito vazio remove a ligação; recorrencia torna recorrente (ou muda), vazia torna avulso. Num recorrente, a mudança vale para ele e as ocorrências que ele ainda gerar: se a próxima já existe (seguinte), altere a próxima, que lembretes_recorrentes mostra. Confirmado ou cancelado não muda.",
+	"alterar_lembrete":      "Corrige texto, palavra-chave (curto), hora, precisão, grau de aviso (aviso_max: 1 só a ilha, 2 sem som, 3 com som; se o retorno trouxer alerta, repasse-o), fim da janela, organização, ligações ou recorrência de um lembrete, mantendo o id: nunca cancele e recrie para isso. Só os campos informados mudam; tarefa ou requisito vazio remove a ligação; recorrencia torna recorrente (ou muda), vazia torna avulso. Num recorrente, a mudança vale para ele e as ocorrências que ele ainda gerar: se a próxima já existe (seguinte), altere a próxima, que lembretes_recorrentes mostra. Confirmado ou cancelado não muda.",
 	"confirmar_lembrete":    "Marca o lembrete como visto: ele para de pedir atenção. Só quando o Rafael disser que viu ou fez.",
 	"cancelar_lembrete":     "Cancela um lembrete que não vale mais. Só quando o Rafael disser que não vale mais; para mudar texto, hora ou ligações, alterar_lembrete. Num recorrente, encerra a série (cancele a ocorrência que lembretes_recorrentes mostra); para pular só uma ocorrência, confirme-a.",
 	"lembretes_recorrentes": "As séries de lembretes recorrentes em andamento, uma por série: a ocorrência mais recente (a que gera as seguintes), com recorrencia, intervalo, serie (o primeiro lembrete) e quando. É nela que se altera ou cancela a série.",
@@ -963,6 +963,7 @@ type NovoLembrete struct {
 	Quando      string `json:"quando" jsonschema:"hora marcada em RFC 3339 com fuso, como 2026-10-21T09:00:00-03:00; fora de hora, uma hora dentro da janela: em turno, é ela que escolhe o turno (manhã 10:00, almoço 12:30, tarde 15:00, noite 20:00); em dia, semana, fim de semana ou mês, qualquer hora de um dia dentro dele (semana pedida no sábado ou domingo já é a seguinte)"`
 	Precisao    string `json:"precisao" jsonschema:"hora (o Rafael disse data e hora explícitas), turno (manhã, almoço, tarde ou noite), dia (um dia, sem hora), semana (uma semana, sem dia; vence na sexta às 18h), fim_de_semana (sábado e domingo) ou mes (um mês, sem dia; vence no último dia útil às 18h); infira da mensagem dele"`
 	Fim         string `json:"fim,omitempty" jsonschema:"só se o Rafael pediu outro prazo que o padrão da precisão (semana até domingo, por exemplo): fim da janela em RFC 3339 com fuso; ausente, o padrão"`
+	AvisoMax    int    `json:"aviso_max,omitempty" jsonschema:"grau de aviso, só na precisão hora: 1 só a ilha do iPhone (card 30 min antes), 2 sem som (também notificação silenciosa e lâmpada 10 min antes; padrão), 3 com som (também alarme 5 min antes). Use 3 só quando o Rafael pedir som ou o compromisso não puder passar; ausente, 2"`
 	Organizacao string `json:"organizacao" jsonschema:"Cartório, Yes ou Pessoal (ou a da instalação)"`
 	Tarefa      string `json:"tarefa,omitempty" jsonschema:"tarefa ligada, como T-0001"`
 	Requisito   string `json:"requisito,omitempty" jsonschema:"requisito ligado, como R-0001"`
@@ -977,6 +978,8 @@ type ResumoDeLembrete struct {
 	Organizacao    string `json:"organizacao" jsonschema:"organização do lembrete, como Cartório, Yes ou Pessoal; vem sempre"`
 	Quando         string `json:"quando"`
 	Precisao       string `json:"precisao"`
+	AvisoMax       int    `json:"aviso_max,omitempty" jsonschema:"grau de aviso, só na precisão hora: 1 só a ilha, 2 sem som, 3 com som"`
+	Alerta         string `json:"alerta,omitempty" jsonschema:"só em criar e alterar: aviso para repassar ao Rafael, como um alarme com som de madrugada"`
 	Fim            string `json:"fim,omitempty" jsonschema:"fim da janela, gravado ao salvar; ausente na precisão hora"`
 	Vence          string `json:"vence" jsonschema:"quando o lembrete vence: o fim da janela, ou a própria hora na precisão hora"`
 	VenceNoPeriodo bool   `json:"vence_no_periodo,omitempty" jsonschema:"só em proximos_lembretes: vence entre agora e o fim do período pedido"`
@@ -1013,6 +1016,7 @@ type AlteracaoDeLembrete struct {
 	Curto       *string `json:"curto,omitempty" jsonschema:"nova palavra-chave, até 10 caracteres; vazio remove"`
 	Quando      string  `json:"quando,omitempty" jsonschema:"nova hora marcada, em RFC 3339 com fuso"`
 	Precisao    string  `json:"precisao,omitempty" jsonschema:"nova precisão: hora, turno, dia, semana, fim_de_semana ou mes"`
+	AvisoMax    int     `json:"aviso_max,omitempty" jsonschema:"novo grau de aviso, só na precisão hora: 1 só a ilha, 2 sem som, 3 com som"`
 	Fim         string  `json:"fim,omitempty" jsonschema:"novo fim da janela em RFC 3339 com fuso, só quando o Rafael pediu outro prazo que o padrão; mudar quando ou precisão sem fim volta ao padrão"`
 	Organizacao string  `json:"organizacao,omitempty" jsonschema:"nova organização"`
 	Tarefa      *string `json:"tarefa,omitempty" jsonschema:"tarefa ligada, como T-0001; vazio remove a ligação"`
@@ -1050,6 +1054,9 @@ func resumirLembrete(x api.Lembrete) ResumoDeLembrete {
 	if x.Curto != nil {
 		r.Curto = *x.Curto
 	}
+	if x.Precisao == api.PrecisaoHora {
+		r.AvisoMax = x.AvisoMax
+	}
 	r.Vence = r.Quando
 	if x.Fim != nil {
 		r.Fim = x.Fim.In(x.Quando.Location()).Format(time.RFC3339)
@@ -1065,6 +1072,20 @@ func resumirLembrete(x api.Lembrete) ResumoDeLembrete {
 		r.Seguinte = *x.Seguinte
 	}
 	return r
+}
+
+// alertaNoturno: o grau 3 toca alarme com som 5 min antes; entre 23h e 7h (no fuso do lembrete) o
+// MCP avisa quem gravou, sem recusar.
+func alertaNoturno(x api.Lembrete) string {
+	if x.Precisao != api.PrecisaoHora || x.AvisoMax < 3 {
+		return ""
+	}
+	h := x.Quando.Hour()
+	if h >= 7 && h < 23 {
+		return ""
+	}
+	return fmt.Sprintf("%s vai tocar alarme com som às %s, de madrugada (entre 23h e 7h). Gravei assim; "+
+		"confirme com o Rafael ou baixe com aviso_max 2 (sem som)", x.Id, x.Quando.Add(-5*time.Minute).Format("15:04"))
 }
 
 func lerHora(campo, valor string) (time.Time, error) {
@@ -1087,6 +1108,9 @@ func (f *Ferramentas) criarLembrete(ctx context.Context, _ *mcp.CallToolRequest,
 	novo := api.NovoLembrete{
 		Texto: in.Texto, Curto: opcional(in.Curto), Quando: quando, Precisao: &precisao, Organizacao: in.Organizacao, Tarefa: opcional(in.Tarefa), Requisito: opcional(in.Requisito),
 	}
+	if in.AvisoMax != 0 {
+		novo.AvisoMax = &in.AvisoMax
+	}
 	if in.Fim != "" {
 		fim, err := lerHora("fim", in.Fim)
 		if err != nil {
@@ -1106,7 +1130,9 @@ func (f *Ferramentas) criarLembrete(ctx context.Context, _ *mcp.CallToolRequest,
 	if err := decodificar(resp, err, &x); err != nil {
 		return nil, ResumoDeLembrete{}, err
 	}
-	return nil, resumirLembrete(x), nil
+	r := resumirLembrete(x)
+	r.Alerta = alertaNoturno(x)
+	return nil, r, nil
 }
 
 func (f *Ferramentas) proximosLembretes(ctx context.Context, _ *mcp.CallToolRequest, in FiltroDeLembretes) (*mcp.CallToolResult, Lembretes, error) {
@@ -1209,6 +1235,9 @@ func (f *Ferramentas) alterarLembrete(ctx context.Context, _ *mcp.CallToolReques
 		precisao := api.PrecisaoLembrete(in.Precisao)
 		a.Precisao = &precisao
 	}
+	if in.AvisoMax != 0 {
+		a.AvisoMax = &in.AvisoMax
+	}
 	if in.Fim != "" {
 		fim, err := lerHora("fim", in.Fim)
 		if err != nil {
@@ -1221,7 +1250,11 @@ func (f *Ferramentas) alterarLembrete(ctx context.Context, _ *mcp.CallToolReques
 	if err := decodificar(resp, err, &x); err != nil {
 		return nil, ResumoDeLembrete{}, err
 	}
-	return nil, resumirLembrete(x), nil
+	r := resumirLembrete(x)
+	if a.AvisoMax != nil || a.Quando != nil || a.Precisao != nil {
+		r.Alerta = alertaNoturno(x)
+	}
+	return nil, r, nil
 }
 
 func (f *Ferramentas) confirmarLembrete(ctx context.Context, _ *mcp.CallToolRequest, in Id) (*mcp.CallToolResult, ResumoDeLembrete, error) {

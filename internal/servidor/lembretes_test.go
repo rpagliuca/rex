@@ -338,3 +338,42 @@ func TestPreencherFins(t *testing.T) {
 		t.Fatalf("preencher de novo não deveria achar nada: %d", n)
 	}
 }
+
+// TestGrauDeAviso: o grau padrão é 2; 1 a 3 são aceitos na criação e na alteração, fora disso é
+// recusado; adiar mantém o grau e a próxima ocorrência de um recorrente o herda.
+func TestGrauDeAviso(t *testing.T) {
+	a := novoAmbiente(t)
+	fuso := time.FixedZone("-03", -3*3600)
+	a.relogio(time.Date(2026, 11, 16, 14, 0, 0, 0, fuso))
+	quando := time.Date(2026, 11, 16, 16, 30, 0, 0, fuso)
+
+	var l api.Lembrete
+	a.chamar("POST", "/lembretes", "", api.NovoLembrete{Texto: "dentista", Quando: quando, Organizacao: "Exemplo"}, 201, &l)
+	if l.AvisoMax != 2 {
+		t.Fatalf("grau padrão: %d", l.AvisoMax)
+	}
+	a.chamar("POST", "/lembretes", "", api.NovoLembrete{Texto: "x", Quando: quando, AvisoMax: de(0), Organizacao: "Exemplo"}, 400, nil)
+	a.chamar("POST", "/lembretes", "", api.NovoLembrete{Texto: "x", Quando: quando, AvisoMax: de(4), Organizacao: "Exemplo"}, 400, nil)
+	a.chamar("PATCH", "/lembretes/"+l.Id, "", api.AlteracaoLembrete{AvisoMax: de(3)}, 200, &l)
+	if l.AvisoMax != 3 {
+		t.Fatalf("grau alterado: %d", l.AvisoMax)
+	}
+	a.chamar("PATCH", "/lembretes/"+l.Id, "", api.AlteracaoLembrete{AvisoMax: de(5)}, 400, nil)
+	a.chamar("POST", "/lembretes/"+l.Id+"/adiamento", "", api.Adiamento{Minutos: de(15)}, 200, &l)
+	if l.AvisoMax != 3 {
+		t.Fatalf("adiar mudou o grau: %d", l.AvisoMax)
+	}
+
+	diaria := api.RecorrenciaDiaria
+	var r api.Lembrete
+	a.chamar("POST", "/lembretes", "", api.NovoLembrete{Texto: "remédio", Quando: quando, AvisoMax: de(1), Recorrencia: &diaria, Organizacao: "Exemplo"}, 201, &r)
+	a.chamar("POST", "/lembretes/"+r.Id+"/confirmacao", "", nil, 200, &r)
+	if r.Seguinte == nil {
+		t.Fatalf("sem seguinte: %+v", r)
+	}
+	var s api.Lembrete
+	a.chamar("GET", "/lembretes/"+*r.Seguinte, "", nil, 200, &s)
+	if s.AvisoMax != 1 {
+		t.Fatalf("seguinte não herdou o grau: %d", s.AvisoMax)
+	}
+}

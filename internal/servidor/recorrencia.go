@@ -90,7 +90,7 @@ func lerSerie(c consultor, n int64) (serieDoLembrete, bool, error) {
 
 // gerarSeguinte cria a próxima ocorrência de um lembrete recorrente que ainda não a tem: a primeira
 // depois da atual cuja janela não acabou (servidor parado não gera ocorrências já vencidas). O
-// lembrete novo copia texto, curto, precisão, organização e ligações. Avulso ou já com seguinte:
+// lembrete novo copia texto, curto, grau de aviso, precisão, organização e ligações. Avulso ou já com seguinte:
 // nada a fazer.
 func (s *Servidor) gerarSeguinte(tx *sql.Tx, quem string, x api.Lembrete) error {
 	n := mustNumero(x.Id, "L")
@@ -127,10 +127,10 @@ func (s *Servidor) gerarSeguinte(tx *sql.Tx, quem string, x api.Lembrete) error 
 	}
 	momento := s.momento()
 	res, err := tx.Exec(`INSERT INTO lembretes (texto, curto, quando, quando_utc, precisao, organizacao, tarefa_id, requisito_id, autor,
-		criado_em, atualizado_em, recorrencia, intervalo, serie_inicio, ocorrencia, serie_id, fim, fim_utc)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, x.Texto, curto, quando.Format(time.RFC3339), utc(quando),
+		criado_em, atualizado_em, recorrencia, intervalo, serie_inicio, ocorrencia, serie_id, fim, fim_utc, aviso_max)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, x.Texto, curto, quando.Format(time.RFC3339), utc(quando),
 		string(x.Precisao), x.Organizacao, tarefa, requisito, quem, momento, momento,
-		string(serie.recorrencia), serie.intervalo, serie.inicio.Format(time.RFC3339), k, serie.serie, fim, fimUTC)
+		string(serie.recorrencia), serie.intervalo, serie.inicio.Format(time.RFC3339), k, serie.serie, fim, fimUTC, x.AvisoMax)
 	if err != nil {
 		return err
 	}

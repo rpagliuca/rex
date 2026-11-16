@@ -60,6 +60,34 @@ function descreverQuando(l: Lembrete): string {
   return formatoDaHora.format(d)
 }
 
+// Grau de aviso do lembrete de hora marcada: até onde o iPhone escala antes da hora.
+const nomesDoAviso: Record<number, string> = { 1: "só ilha", 2: "sem som", 3: "com som" }
+
+function CampoDeAviso({ prefixo, aviso, mudar }: { prefixo: string; aviso: number; mudar: (a: number) => void }) {
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={`${prefixo}-aviso`}>Aviso</Label>
+      <Select value={String(aviso)} onValueChange={(v) => mudar(Number(v))}>
+        <SelectTrigger id={`${prefixo}-aviso`} className="w-32">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="1">Só ilha</SelectItem>
+          <SelectItem value="2">Sem som</SelectItem>
+          <SelectItem value="3">Com som</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+  )
+}
+
+// Alarme com som entre 23h e 7h: o formulário avisa, sem impedir.
+function avisoNoturno(m: Marcacao, aviso: number): string | undefined {
+  if (m.precisao !== "hora" || aviso < 3 || !m.local) return undefined
+  const h = new Date(m.local).getHours()
+  return h >= 23 || h < 7 ? "Com som entre 23h e 7h: o alarme vai tocar de madrugada." : undefined
+}
+
 // A recorrência por extenso: "todo mês", "a cada 2 semanas".
 function descreverRecorrencia(l: Lembrete): string | undefined {
   if (!l.recorrencia) return undefined
@@ -129,6 +157,7 @@ function ItemDeLembrete({ lembrete: l, destacado }: { lembrete: Lembrete; destac
       </div>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
         <span>{descreverQuando(l)}</span>
+        {l.precisao === "hora" && <span>{nomesDoAviso[l.aviso_max]}</span>}
         {l.recorrencia && <span title={l.serie ? `série de ${l.serie}` : undefined}>↻ {descreverRecorrencia(l)}</span>}
         {l.seguinte && <span>próximo: {l.seguinte}</span>}
         {l.atrasado && l.status === "disparado" && <span>tocou atrasado</span>}
@@ -267,6 +296,7 @@ function EditarLembrete({ lembrete: l, aoTerminar }: { lembrete: Lembrete; aoTer
   const original = marcacaoDe(l)
   const [texto, setTexto] = useState(l.texto)
   const [marcacao, setMarcacao] = useState(original)
+  const [aviso, setAviso] = useState(l.aviso_max)
   const [organizacao, setOrganizacao] = useState(l.organizacao)
   const [tarefa, setTarefa] = useState(l.tarefa ?? "")
   const [requisito, setRequisito] = useState(l.requisito ?? "")
@@ -281,6 +311,7 @@ function EditarLembrete({ lembrete: l, aoTerminar }: { lembrete: Lembrete; aoTer
         if (marcacao.precisao !== original.precisao) alteracao.precisao = marcacao.precisao
         if (alteracao.precisao || marcacao.local !== original.local || (marcacao.precisao === "turno" && marcacao.turno !== original.turno))
           alteracao.quando = quandoDe(marcacao)
+        if (marcacao.precisao === "hora" && aviso !== l.aviso_max) alteracao.aviso_max = aviso
         if (organizacao.trim() !== l.organizacao) alteracao.organizacao = organizacao
         if (tarefa.trim() !== (l.tarefa ?? "")) alteracao.tarefa = tarefa.trim()
         if (requisito.trim() !== (l.requisito ?? "")) alteracao.requisito = requisito.trim()
@@ -296,6 +327,7 @@ function EditarLembrete({ lembrete: l, aoTerminar }: { lembrete: Lembrete; aoTer
         <Input id={`${prefixo}-texto`} value={texto} onChange={(e) => setTexto(e.target.value)} required />
       </div>
       <CamposDeQuando prefixo={prefixo} marcacao={marcacao} mudar={setMarcacao} />
+      {marcacao.precisao === "hora" && <CampoDeAviso prefixo={prefixo} aviso={aviso} mudar={setAviso} />}
       <div className="w-36 space-y-1.5">
         <Label htmlFor={`${prefixo}-organizacao`}>Organização</Label>
         <Input
@@ -327,6 +359,7 @@ function EditarLembrete({ lembrete: l, aoTerminar }: { lembrete: Lembrete; aoTer
           Desistir
         </Button>
       </div>
+      {avisoNoturno(marcacao, aviso) && <p className="w-full text-amber-600 text-sm">{avisoNoturno(marcacao, aviso)}</p>}
       {alterar.error && <p className="w-full text-destructive text-sm">{alterar.error.message}</p>}
     </form>
   )
@@ -338,6 +371,7 @@ function NovoLembrete() {
   const atual = useOrganizacaoAtual().organizacao
   const [texto, setTexto] = useState("")
   const [marcacao, setMarcacao] = useState(marcacaoVazia)
+  const [aviso, setAviso] = useState(2)
   const [organizacao, setOrganizacao] = useState(atual)
   return (
     <form
@@ -345,7 +379,7 @@ function NovoLembrete() {
       onSubmit={(e) => {
         e.preventDefault()
         criar.mutate(
-          { texto, quando: quandoDe(marcacao), precisao: marcacao.precisao, organizacao },
+          { texto, quando: quandoDe(marcacao), precisao: marcacao.precisao, organizacao, ...(marcacao.precisao === "hora" ? { aviso_max: aviso } : {}) },
           {
             onSuccess: () => {
               setTexto("")
@@ -360,6 +394,7 @@ function NovoLembrete() {
         <Input id="texto" value={texto} onChange={(e) => setTexto(e.target.value)} required />
       </div>
       <CamposDeQuando prefixo="novo" marcacao={marcacao} mudar={setMarcacao} />
+      {marcacao.precisao === "hora" && <CampoDeAviso prefixo="novo" aviso={aviso} mudar={setAviso} />}
       <div className="w-36 space-y-1.5">
         <Label htmlFor="organizacao-lembrete">Organização</Label>
         <Input
@@ -378,6 +413,7 @@ function NovoLembrete() {
       <Button type="submit" disabled={criar.isPending}>
         Agendar
       </Button>
+      {avisoNoturno(marcacao, aviso) && <p className="w-full text-amber-600 text-sm">{avisoNoturno(marcacao, aviso)}</p>}
       {criar.error && <p className="w-full text-destructive text-sm">{criar.error.message}</p>}
     </form>
   )
