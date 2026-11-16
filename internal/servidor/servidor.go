@@ -224,11 +224,15 @@ func tokenDaRequisicao(r *http.Request) string {
 	return strings.TrimSpace(token)
 }
 
-// autor identifica quem faz a requisição: a sessão dona do token, ou "local" sem token.
+// autor identifica quem faz a requisição: a sessão dona do token; sem token, a integração que o
+// login autenticou (cabeçalho X-Rex-Autor, que o login apaga das demais) ou "local".
 // Um token inválido ou de sessão encerrada é recusado, para nenhuma escrita ser atribuída errado.
 func autor(tx *sql.Tx, r *http.Request) (string, error) {
 	token := tokenDaRequisicao(r)
 	if token == "" {
+		if integracao := strings.TrimSpace(r.Header.Get("X-Rex-Autor")); integracao != "" {
+			return integracao, nil
+		}
 		return "local", nil
 	}
 	var n int64

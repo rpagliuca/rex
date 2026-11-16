@@ -167,7 +167,10 @@ sexta às 9"): `criar_lembrete` com `quando` em RFC 3339 com fuso, ligado à tar
 para "semana que vem" ou "próxima semana", `fim_de_semana` para "no fim de semana", `mes` para "em abril" ou
 "mês que vem"; com o dia dentro
 deles ("quarta da semana que vem"), `dia`. Nunca invente uma hora para o que não tem: só `hora` toca
-alarme; os demais são avisados em lote, sem som. Preencha `curto` com a palavra-chave do compromisso
+alarme; os demais são avisados em lote, sem som. Na precisão `hora`, `aviso_max` é o grau: 1 só a
+ilha do iPhone, 2 sem som (padrão: também notificação silenciosa e lâmpada 10 min antes), 3 com som
+(também alarme 5 min antes); 3 só quando ele pedir som, e se o retorno trouxer `alerta` (alarme de
+madrugada), repasse-o. Preencha `curto` com a palavra-chave do compromisso
 (até 10 caracteres: "ballet", "dentista", "Vivo"): é o que cabe no resumo da ilha do iPhone, e sem
 ela a ilha mostra o começo do texto. O rex grava o fim da janela ao salvar: o dia vai até a
 meia-noite, a semana de segunda às 8h até **sexta às 18h** (pedida no sábado ou domingo, já é a

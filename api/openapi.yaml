@@ -1909,7 +1909,7 @@ components:
       x-enum-varnames: [RecorrenciaDiaria, RecorrenciaSemanal, RecorrenciaMensal, RecorrenciaAnual]
     Lembrete:
       type: object
-      required: [id, texto, quando, precisao, organizacao, status, autor, adiamentos, criado_em, atualizado_em]
+      required: [id, texto, quando, precisao, aviso_max, organizacao, status, autor, adiamentos, criado_em, atualizado_em]
       properties:
         id: { type: string, example: L-0001 }
         texto: { type: string }
@@ -1927,6 +1927,15 @@ components:
           type: string
           format: date-time
           description: 'Fim (exclusivo) da janela, gravado ao salvar: é quando o lembrete vence. Ausente na precisão hora, que vence em `quando`'
+        aviso_max:
+          type: integer
+          minimum: 1
+          maximum: 3
+          description: |
+            Grau de aviso, só na precisão hora: até onde as integrações escalam antes da hora. 1 só a
+            ilha do iPhone (card 30 min antes); 2 também a notificação silenciosa e a lâmpada 10 min antes
+            (padrão); 3 também o alarme com som 5 min antes. Turno, dia, semana, fim de semana e mês
+            nunca tocam, qualquer que seja o grau. Adiar mantém o grau.
         organizacao: { type: string }
         tarefa: { type: string, example: T-0001 }
         requisito: { type: string, example: R-0001 }
@@ -1964,6 +1973,11 @@ components:
         precisao:
           allOf: [{ $ref: '#/components/schemas/PrecisaoLembrete' }]
           description: 'Padrão: hora'
+        aviso_max:
+          type: integer
+          minimum: 1
+          maximum: 3
+          description: 'Grau de aviso na precisão hora: 1 só a ilha, 2 sem som (padrão), 3 com som'
         fim:
           type: string
           format: date-time
@@ -1980,6 +1994,7 @@ components:
       properties:
         texto: { type: string }
         curto: { type: string, maxLength: 10, description: 'Vazio remove a palavra-chave' }
+        aviso_max: { type: integer, minimum: 1, maximum: 3, description: 'Novo grau de aviso: 1 só a ilha, 2 sem som, 3 com som' }
         quando: { type: string, format: date-time }
         precisao:
           allOf: [{ $ref: '#/components/schemas/PrecisaoLembrete' }]

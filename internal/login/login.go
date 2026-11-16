@@ -62,6 +62,8 @@ type Config struct {
 	Emails []string `json:"emails"`
 	// DuracaoHoras de um login; padrão 30 dias.
 	DuracaoHoras int `json:"duracao_horas"`
+	// Integracoes entram sem cookie, por token, só nas rotas dos lembretes (ver integracoes.go).
+	Integracoes []Integracao `json:"integracoes,omitempty"`
 }
 
 // Login é a configuração carregada e validada.
@@ -75,6 +77,8 @@ type Login struct {
 	agora   func() time.Time
 	// conector, quando ligado, serve o MCP remoto em /mcp (ver conector.go).
 	conector *conector
+	// integracoes entram por token nas rotas dos lembretes (ver integracoes.go).
+	integracoes []integracao
 	// trocar troca o código pelo id_token; é substituída nos testes.
 	trocar func(ctx context.Context, codigo, verificador string) (string, error)
 }
@@ -127,6 +131,11 @@ func Novo(cfg Config, ambiente func(string) string) (*Login, error) {
 	if cfg.DuracaoHoras > 0 {
 		l.duracao = time.Duration(cfg.DuracaoHoras) * time.Hour
 	}
+	integracoes, err := carregarIntegracoes(cfg.Integracoes, ambiente)
+	if err != nil {
+		return nil, err
+	}
+	l.integracoes = integracoes
 	l.trocar = l.trocarNoGoogle
 	return l, nil
 }
@@ -142,6 +151,19 @@ func (l *Login) Proteger(proximo http.Handler) http.Handler {
 		l.rotasDoConector(mux)
 	}
 	mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.Header.Del(CabecalhoAutor)
+		if nome, presente := l.integracaoDa(r); presente {
+			switch {
+			case nome == "":
+				responderErro(w, http.StatusUnauthorized, "token de integração inválido")
+			case !rotaDaIntegracao(r):
+				responderErro(w, http.StatusForbidden, "o token de integração só lê, altera, adia e confirma lembretes")
+			default:
+				r.Header.Set(CabecalhoAutor, nome)
+				proximo.ServeHTTP(w, r)
+			}
+			return
+		}
 		if _, ok := l.emailDoCookie(r); ok {
 			proximo.ServeHTTP(w, r)
 			return

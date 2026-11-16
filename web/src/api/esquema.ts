@@ -1598,6 +1598,12 @@ export interface components {
              * @description Fim (exclusivo) da janela, gravado ao salvar: é quando o lembrete vence. Ausente na precisão hora, que vence em `quando`
              */
             fim?: string;
+            /** @description Grau de aviso, só na precisão hora: até onde as integrações escalam antes da hora. 1 só a
+             *     ilha do iPhone (card 30 min antes); 2 também a notificação silenciosa e a lâmpada 10 min antes
+             *     (padrão); 3 também o alarme com som 5 min antes. Turno, dia, semana, fim de semana e mês
+             *     nunca tocam, qualquer que seja o grau. Adiar mantém o grau.
+             *      */
+            aviso_max: number;
             organizacao: string;
             /** @example T-0001 */
             tarefa?: string;
@@ -1652,6 +1658,8 @@ export interface components {
             quando: string;
             /** @description Padrão: hora */
             precisao?: components["schemas"]["PrecisaoLembrete"];
+            /** @description Grau de aviso na precisão hora: 1 só a ilha, 2 sem som (padrão), 3 com som */
+            aviso_max?: number;
             /**
              * Format: date-time
              * @description Fim da janela, só para trocar o padrão da precisão (semana até domingo, por exemplo); depois do início da janela. Ausente: o padrão
@@ -1669,6 +1677,8 @@ export interface components {
             texto?: string;
             /** @description Vazio remove a palavra-chave */
             curto?: string;
+            /** @description Novo grau de aviso: 1 só a ilha, 2 sem som, 3 com som */
+            aviso_max?: number;
             /** Format: date-time */
             quando?: string;
             /** @description Mudar a precisão (ou a hora de um turno ou dia) põe `quando` no início da janela e recalcula o `fim` */

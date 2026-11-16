@@ -156,6 +156,9 @@ type AlteracaoComponente struct {
 
 // AlteracaoLembrete defines model for AlteracaoLembrete.
 type AlteracaoLembrete struct {
+	// AvisoMax Novo grau de aviso: 1 só a ilha, 2 sem som, 3 com som
+	AvisoMax *int `json:"aviso_max,omitempty"`
+
 	// Curto Vazio remove a palavra-chave
 	Curto *string `json:"curto,omitempty"`
 
@@ -404,7 +407,13 @@ type Lembrete struct {
 	AtualizadoEm time.Time `json:"atualizado_em"`
 
 	// Autor Sessão (S-0001) ou "local"
-	Autor        string     `json:"autor"`
+	Autor string `json:"autor"`
+
+	// AvisoMax Grau de aviso, só na precisão hora: até onde as integrações escalam antes da hora. 1 só a
+	// ilha do iPhone (card 30 min antes); 2 também a notificação silenciosa e a lâmpada 10 min antes
+	// (padrão); 3 também o alarme com som 5 min antes. Turno, dia, semana, fim de semana e mês
+	// nunca tocam, qualquer que seja o grau. Adiar mantém o grau.
+	AvisoMax     int        `json:"aviso_max"`
 	ConfirmadoEm *time.Time `json:"confirmado_em,omitempty"`
 	CriadoEm     time.Time  `json:"criado_em"`
 
@@ -564,6 +573,9 @@ type NovoComponente struct {
 
 // NovoLembrete defines model for NovoLembrete.
 type NovoLembrete struct {
+	// AvisoMax Grau de aviso na precisão hora: 1 só a ilha, 2 sem som (padrão), 3 com som
+	AvisoMax *int `json:"aviso_max,omitempty"`
+
 	// Curto Palavra-chave do lembrete, até 10 caracteres ("ballet", "dentista"); sem ela, as integrações usam o começo do texto
 	Curto *string `json:"curto,omitempty"`
 
