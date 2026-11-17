@@ -23,6 +23,12 @@ const (
 	TokenDaSessaoScopes = "tokenDaSessao.Scopes"
 )
 
+// Defines values for AdiamentoPara.
+const (
+	Amanha       AdiamentoPara = "amanha"
+	ProximoTurno AdiamentoPara = "proximo_turno"
+)
+
 // Defines values for EstadoDaVoz.
 const (
 	VozEncerrada        EstadoDaVoz = "encerrada"
@@ -141,9 +147,24 @@ const (
 
 // Adiamento defines model for Adiamento.
 type Adiamento struct {
-	Ate     *time.Time `json:"ate,omitempty"`
-	Minutos *int       `json:"minutos,omitempty"`
+	// Ate A nova hora exata
+	Ate *time.Time `json:"ate,omitempty"`
+
+	// Minutos Minutos depois da hora marcada (ou do agora, se ela já passou)
+	Minutos *int `json:"minutos,omitempty"`
+
+	// Para proximo_turno: o turno seguinte ao da hora marcada (ou do agora, se ela já passou), e o
+	// lembrete vira de turno; amanha: o dia seguinte, e o lembrete vira de dia. Nenhum dos dois
+	// toca alarme. Num recorrente a precisão fica (mudá-la mudaria a série): proximo_turno vai
+	// para o início do turno seguinte e amanha para a mesma hora no dia seguinte.
+	Para *AdiamentoPara `json:"para,omitempty"`
 }
+
+// AdiamentoPara proximo_turno: o turno seguinte ao da hora marcada (ou do agora, se ela já passou), e o
+// lembrete vira de turno; amanha: o dia seguinte, e o lembrete vira de dia. Nenhum dos dois
+// toca alarme. Num recorrente a precisão fica (mudá-la mudaria a série): proximo_turno vai
+// para o início do turno seguinte e amanha para a mesma hora no dia seguinte.
+type AdiamentoPara string
 
 // AlteracaoComponente defines model for AlteracaoComponente.
 type AlteracaoComponente struct {

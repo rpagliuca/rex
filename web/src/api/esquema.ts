@@ -833,7 +833,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Reagenda para `ate` ou para agora + `minutos` (um dos dois). O status vira adiado. */
+        /** @description Reagenda o lembrete (um dos três campos). O status vira adiado. `minutos` e `para` contam da
+         *     hora marcada enquanto ela não passou, e do agora depois que passou: adiar 15 min um lembrete
+         *     das 19:00 dá 19:15, tocado às 18:35 ou às 18:58; tocado às 19:20, dá 19:35.
+         *      */
         post: operations["adiarLembrete"];
         delete?: never;
         options?: never;
@@ -1702,9 +1705,22 @@ export interface components {
             intervalo?: number;
         };
         Adiamento: {
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description A nova hora exata
+             */
             ate?: string;
+            /** @description Minutos depois da hora marcada (ou do agora, se ela já passou) */
             minutos?: number;
+            /**
+             * @description proximo_turno: o turno seguinte ao da hora marcada (ou do agora, se ela já passou), e o
+             *     lembrete vira de turno; amanha: o dia seguinte, e o lembrete vira de dia. Nenhum dos dois
+             *     toca alarme. Num recorrente a precisão fica (mudá-la mudaria a série): proximo_turno vai
+             *     para o início do turno seguinte e amanha para a mesma hora no dia seguinte.
+             *
+             * @enum {string}
+             */
+            para?: "proximo_turno" | "amanha";
         };
         Voz: {
             /** @description Sessão (S-0001) */

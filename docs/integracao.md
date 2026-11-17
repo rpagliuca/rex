@@ -129,7 +129,9 @@ Todo lembrete tem `precisao`:
   numa notificação em lote (mesmo `quando`, precisão diferente de `hora`), sem alarme sonoro, e pode
   mostrá-los até `fim`. Um lembrete de hoje cuja janela ainda não acabou é aceito e dispara na hora;
   disparar depois do início da janela nunca é `atrasado`. Adiar põe `quando` exatamente na nova hora,
-  mantendo a precisão.
+  mantendo a precisão. `minutos` e `para` (`proximo_turno`, `amanha`) contam da hora marcada
+  enquanto ela não passou e do agora depois que passou; `para` tira um avulso da precisão hora
+  (vira turno ou dia), mas mantém a de um recorrente.
 
 O `POST /lembretes` sem `precisao` assume `hora`; a ferramenta `criar_lembrete` do MCP exige que o
 agente escolha, pelo que o usuário disse.

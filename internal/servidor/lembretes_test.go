@@ -377,3 +377,62 @@ func TestGrauDeAviso(t *testing.T) {
 		t.Fatalf("seguinte não herdou o grau: %d", s.AvisoMax)
 	}
 }
+
+// Adiar conta da hora marcada enquanto ela não passou (adiar nunca antecipa o compromisso) e do
+// agora depois que passou; próximo turno e amanhã usam a mesma base.
+func TestAdiarContaDaHoraMarcada(t *testing.T) {
+	a := novoAmbiente(t)
+	fuso := time.FixedZone("-03", -3*3600)
+	agora := a.relogio(time.Date(2026, 11, 16, 18, 35, 0, 0, fuso))
+	em := func(dia, h, m int) time.Time { return time.Date(2026, 11, dia, h, m, 0, 0, fuso) }
+	novo := func(quando time.Time, recorrencia *api.RecorrenciaLembrete) api.Lembrete {
+		var l api.Lembrete
+		a.chamar("POST", "/lembretes", "", api.NovoLembrete{Texto: "evangelho", Quando: quando, Recorrencia: recorrencia, Organizacao: "Exemplo"}, 201, &l)
+		return l
+	}
+	adiar := func(l api.Lembrete, ad api.Adiamento) api.Lembrete {
+		a.chamar("POST", "/lembretes/"+l.Id+"/adiamento", "", ad, 200, &l)
+		return l
+	}
+	confere := func(l api.Lembrete, quando time.Time, precisao api.PrecisaoLembrete) {
+		t.Helper()
+		if !l.Quando.Equal(quando) || l.Precisao != precisao {
+			t.Fatalf("esperava %s (%s), veio %s (%s)", quando.Format(time.RFC3339), precisao, l.Quando.Format(time.RFC3339), l.Precisao)
+		}
+	}
+	turno, amanha := api.ProximoTurno, api.Amanha
+
+	// Hora ainda no futuro: 19:00 + 15 min = 19:15, tocado às 18:35 ou às 18:58.
+	l := novo(em(16, 19, 0), nil)
+	confere(adiar(l, api.Adiamento{Minutos: de(15)}), em(16, 19, 15), api.PrecisaoHora)
+	l = novo(em(16, 19, 0), nil)
+	*agora = em(16, 18, 58)
+	confere(adiar(l, api.Adiamento{Minutos: de(60)}), em(16, 20, 0), api.PrecisaoHora)
+
+	// Hora já passou: conta do toque.
+	l = novo(em(16, 19, 0), nil)
+	*agora = em(16, 19, 20)
+	confere(adiar(l, api.Adiamento{Minutos: de(15)}), em(16, 19, 35), api.PrecisaoHora)
+
+	// Próximo turno: o seguinte ao da hora marcada (tarde → noite; noite → manhã de amanhã).
+	*agora = em(16, 10, 0)
+	confere(adiar(novo(em(16, 14, 0), nil), api.Adiamento{Para: &turno}), em(16, 18, 0), api.PrecisaoTurno)
+	confere(adiar(novo(em(16, 19, 0), nil), api.Adiamento{Para: &turno}), em(17, 8, 0), api.PrecisaoTurno)
+	// Amanhã: o dia seguinte ao da hora marcada, sem alarme.
+	confere(adiar(novo(em(17, 19, 0), nil), api.Adiamento{Para: &amanha}), em(18, 8, 0), api.PrecisaoDia)
+	// Hora passada: o dia seguinte ao toque.
+	l = novo(em(16, 11, 0), nil)
+	*agora = em(16, 11, 30)
+	confere(adiar(l, api.Adiamento{Para: &amanha}), em(17, 8, 0), api.PrecisaoDia)
+
+	// Recorrente: a precisão fica (a próxima ocorrência a copia).
+	diaria := api.RecorrenciaDiaria
+	confere(adiar(novo(em(16, 19, 0), &diaria), api.Adiamento{Para: &amanha}), em(17, 19, 0), api.PrecisaoHora)
+	confere(adiar(novo(em(16, 19, 0), &diaria), api.Adiamento{Para: &turno}), em(17, 8, 0), api.PrecisaoHora)
+
+	// Só um dos três campos.
+	l = novo(em(16, 19, 0), nil)
+	a.chamar("POST", "/lembretes/"+l.Id+"/adiamento", "", api.Adiamento{Minutos: de(15), Para: &turno}, 400, nil)
+	invalido := api.AdiamentoPara("semana")
+	a.chamar("POST", "/lembretes/"+l.Id+"/adiamento", "", api.Adiamento{Para: &invalido}, 400, nil)
+}
