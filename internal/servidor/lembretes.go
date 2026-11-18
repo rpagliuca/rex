@@ -620,8 +620,8 @@ func baseDoAdiamento(atual api.Lembrete, agora time.Time) time.Time {
 	return agora.In(atual.Quando.Location())
 }
 
-// adiarPara calcula a nova hora e a precisão de "próximo turno" e "amanhã", a partir da mesma base
-// do adiamento por minutos. Fora de recorrente, o lembrete vira de turno ou de dia (sem alarme); num
+// adiarPara calcula a nova hora e a precisão de "próximo turno", "amanhã" e "próxima semana", a partir da mesma base
+// do adiamento por minutos. Fora de recorrente, o lembrete vira de turno, dia ou semana (sem alarme); num
 // recorrente a precisão fica, porque a próxima ocorrência a copia.
 func (s *Servidor) adiarPara(atual api.Lembrete, para api.AdiamentoPara) (time.Time, api.PrecisaoLembrete, error) {
 	base := baseDoAdiamento(atual, s.agora())
@@ -644,8 +644,19 @@ func (s *Servidor) adiarPara(atual api.Lembrete, para api.AdiamentoPara) (time.T
 		d := base.AddDate(0, 0, 1)
 		inicio, _ := t.janela(api.PrecisaoDia, time.Date(d.Year(), d.Month(), d.Day(), 12, 0, 0, 0, base.Location()))
 		return inicio, api.PrecisaoDia, nil
+	case api.ProximaSemana:
+		if recorrente {
+			return atual.Quando.In(base.Location()).AddDate(0, 0, 7), atual.Precisao, nil
+		}
+		// A janela de semana de um sábado ou domingo já é a que começa na segunda: é ela. Dentro de
+		// uma semana (de segunda de manhã a sexta à noite), a seguinte.
+		inicio, fim := t.janela(api.PrecisaoSemana, base)
+		if !base.Before(inicio) {
+			inicio, _ = t.janela(api.PrecisaoSemana, fim)
+		}
+		return inicio, api.PrecisaoSemana, nil
 	}
-	return time.Time{}, "", falha(http.StatusBadRequest, "para inválido: %q (proximo_turno ou amanha)", para)
+	return time.Time{}, "", falha(http.StatusBadRequest, "para inválido: %q (proximo_turno, amanha ou proxima_semana)", para)
 }
 
 func (s *Servidor) CancelarLembrete(w http.ResponseWriter, r *http.Request, id api.Id) {

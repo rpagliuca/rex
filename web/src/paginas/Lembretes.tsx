@@ -193,6 +193,9 @@ function ItemDeLembrete({ lembrete: l, destacado }: { lembrete: Lembrete; destac
           <Button size="sm" variant="outline" onClick={() => adiar.mutate({ id: l.id, para: "amanha" })} disabled={adiar.isPending}>
             Amanhã
           </Button>
+          <Button size="sm" variant="outline" onClick={() => adiar.mutate({ id: l.id, para: "proxima_semana" })} disabled={adiar.isPending}>
+            Próxima semana
+          </Button>
           <Button size="sm" variant="outline" onClick={() => setEditando(true)}>
             Editar
           </Button>

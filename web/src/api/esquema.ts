@@ -1714,13 +1714,15 @@ export interface components {
             minutos?: number;
             /**
              * @description proximo_turno: o turno seguinte ao da hora marcada (ou do agora, se ela já passou), e o
-             *     lembrete vira de turno; amanha: o dia seguinte, e o lembrete vira de dia. Nenhum dos dois
-             *     toca alarme. Num recorrente a precisão fica (mudá-la mudaria a série): proximo_turno vai
-             *     para o início do turno seguinte e amanha para a mesma hora no dia seguinte.
+             *     lembrete vira de turno; amanha: o dia seguinte, e o lembrete vira de dia; proxima_semana:
+             *     a semana seguinte (de um sábado ou domingo, a que começa na segunda), e o lembrete vira de
+             *     semana. Nenhum dos três toca alarme. Num recorrente a precisão fica (mudá-la mudaria a
+             *     série): proximo_turno vai para o início do turno seguinte, amanha para a mesma hora no dia
+             *     seguinte e proxima_semana para a mesma hora sete dias depois.
              *
              * @enum {string}
              */
-            para?: "proximo_turno" | "amanha";
+            para?: "proximo_turno" | "amanha" | "proxima_semana";
         };
         Voz: {
             /** @description Sessão (S-0001) */
