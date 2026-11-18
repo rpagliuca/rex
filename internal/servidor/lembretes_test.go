@@ -400,7 +400,7 @@ func TestAdiarContaDaHoraMarcada(t *testing.T) {
 			t.Fatalf("esperava %s (%s), veio %s (%s)", quando.Format(time.RFC3339), precisao, l.Quando.Format(time.RFC3339), l.Precisao)
 		}
 	}
-	turno, amanha := api.ProximoTurno, api.Amanha
+	turno, amanha, semana := api.ProximoTurno, api.Amanha, api.ProximaSemana
 
 	// Hora ainda no futuro: 19:00 + 15 min = 19:15, tocado às 18:35 ou às 18:58.
 	l := novo(em(16, 19, 0), nil)
@@ -425,8 +425,14 @@ func TestAdiarContaDaHoraMarcada(t *testing.T) {
 	*agora = em(16, 11, 30)
 	confere(adiar(l, api.Adiamento{Para: &amanha}), em(17, 8, 0), api.PrecisaoDia)
 
+	// Próxima semana: de uma quarta (18/11), a segunda seguinte às 8h; de um sábado, a segunda que vem.
+	*agora = em(16, 10, 0)
+	confere(adiar(novo(em(18, 9, 0), nil), api.Adiamento{Para: &semana}), em(23, 8, 0), api.PrecisaoSemana)
+	confere(adiar(novo(em(21, 9, 0), nil), api.Adiamento{Para: &semana}), em(23, 8, 0), api.PrecisaoSemana)
+
 	// Recorrente: a precisão fica (a próxima ocorrência a copia).
 	diaria := api.RecorrenciaDiaria
+	confere(adiar(novo(em(16, 19, 0), &diaria), api.Adiamento{Para: &semana}), em(23, 19, 0), api.PrecisaoHora)
 	confere(adiar(novo(em(16, 19, 0), &diaria), api.Adiamento{Para: &amanha}), em(17, 19, 0), api.PrecisaoHora)
 	confere(adiar(novo(em(16, 19, 0), &diaria), api.Adiamento{Para: &turno}), em(17, 8, 0), api.PrecisaoHora)
 

@@ -448,9 +448,34 @@ func TestLembretesEEsperaPeloMCP(t *testing.T) {
 		if msg := c.chamar("adiar_lembrete", map[string]any{"id": semana.Id, "ate": amanhaAs8}, nil); !strings.Contains(msg, "ainda vale") {
 			t.Fatalf("adiar semana na janela deveria recusar: %q", msg)
 		}
+		// A ordem é a da descrição de proximos_lembretes: vencidos, os que vencem no período (por
+		// vence), os na_janela que vencem depois e os futuros. A semana vence no período ou não
+		// conforme o dia da semana em que o teste roda; a ordem vale nos dois casos.
 		c.chamar("proximos_lembretes", map[string]any{"horas": 48}, &proximos)
-		if n := len(proximos.Lembretes); n == 0 || proximos.Lembretes[0].Id != semana.Id || proximos.Lembretes[n-1].Situacao != futuro {
-			t.Fatalf("ordem por situação: %+v", proximos.Lembretes)
+		grupo := func(x ResumoDeLembrete) int {
+			switch {
+			case x.Situacao == vencido:
+				return 0
+			case x.VenceNoPeriodo:
+				return 1
+			case x.Situacao == naJanela:
+				return 2
+			}
+			return 3
+		}
+		achouSemana := false
+		for i, x := range proximos.Lembretes {
+			achouSemana = achouSemana || x.Id == semana.Id
+			if i == 0 {
+				continue
+			}
+			ant := proximos.Lembretes[i-1]
+			if grupo(ant) > grupo(x) || (grupo(ant) == 1 && grupo(x) == 1 && ant.Vence > x.Vence) {
+				t.Fatalf("ordem por situação: %+v", proximos.Lembretes)
+			}
+		}
+		if !achouSemana {
+			t.Fatalf("semana na janela fora de proximos_lembretes: %+v", proximos.Lembretes)
 		}
 		c.chamar("adiar_lembrete", map[string]any{"id": semana.Id, "ate": amanhaAs8, "mesmo_na_janela": true}, &semana)
 		if semana.Status != "adiado" {

@@ -1006,7 +1006,7 @@ type AdiamentoDeLembrete struct {
 	Id      string `json:"id" jsonschema:"lembrete, como L-0001"`
 	Minutos int    `json:"minutos,omitempty" jsonschema:"quantos minutos depois da hora marcada (ou do agora, se ela já passou)"`
 	Ate     string `json:"ate,omitempty" jsonschema:"ou a nova hora, em RFC 3339 com fuso"`
-	Para    string `json:"para,omitempty" jsonschema:"ou proximo_turno (vira lembrete de turno) ou amanha (vira lembrete de dia), contados da hora marcada (ou do agora, se ela já passou)"`
+	Para    string `json:"para,omitempty" jsonschema:"ou proximo_turno (vira lembrete de turno), amanha (vira lembrete de dia) ou proxima_semana (vira lembrete de semana), contados da hora marcada (ou do agora, se ela já passou)"`
 	// MesmoNaJanela libera o adiamento de um lembrete de semana ou mês que ainda vale.
 	MesmoNaJanela bool `json:"mesmo_na_janela,omitempty" jsonschema:"true só quando o Rafael pediu para adiar este lembrete de semana, fim de semana ou mês pelo nome, com a janela ainda aberta"`
 }

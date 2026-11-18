@@ -25,8 +25,9 @@ const (
 
 // Defines values for AdiamentoPara.
 const (
-	Amanha       AdiamentoPara = "amanha"
-	ProximoTurno AdiamentoPara = "proximo_turno"
+	Amanha        AdiamentoPara = "amanha"
+	ProximaSemana AdiamentoPara = "proxima_semana"
+	ProximoTurno  AdiamentoPara = "proximo_turno"
 )
 
 // Defines values for EstadoDaVoz.
@@ -154,16 +155,20 @@ type Adiamento struct {
 	Minutos *int `json:"minutos,omitempty"`
 
 	// Para proximo_turno: o turno seguinte ao da hora marcada (ou do agora, se ela já passou), e o
-	// lembrete vira de turno; amanha: o dia seguinte, e o lembrete vira de dia. Nenhum dos dois
-	// toca alarme. Num recorrente a precisão fica (mudá-la mudaria a série): proximo_turno vai
-	// para o início do turno seguinte e amanha para a mesma hora no dia seguinte.
+	// lembrete vira de turno; amanha: o dia seguinte, e o lembrete vira de dia; proxima_semana:
+	// a semana seguinte (de um sábado ou domingo, a que começa na segunda), e o lembrete vira de
+	// semana. Nenhum dos três toca alarme. Num recorrente a precisão fica (mudá-la mudaria a
+	// série): proximo_turno vai para o início do turno seguinte, amanha para a mesma hora no dia
+	// seguinte e proxima_semana para a mesma hora sete dias depois.
 	Para *AdiamentoPara `json:"para,omitempty"`
 }
 
 // AdiamentoPara proximo_turno: o turno seguinte ao da hora marcada (ou do agora, se ela já passou), e o
-// lembrete vira de turno; amanha: o dia seguinte, e o lembrete vira de dia. Nenhum dos dois
-// toca alarme. Num recorrente a precisão fica (mudá-la mudaria a série): proximo_turno vai
-// para o início do turno seguinte e amanha para a mesma hora no dia seguinte.
+// lembrete vira de turno; amanha: o dia seguinte, e o lembrete vira de dia; proxima_semana:
+// a semana seguinte (de um sábado ou domingo, a que começa na segunda), e o lembrete vira de
+// semana. Nenhum dos três toca alarme. Num recorrente a precisão fica (mudá-la mudaria a
+// série): proximo_turno vai para o início do turno seguinte, amanha para a mesma hora no dia
+// seguinte e proxima_semana para a mesma hora sete dias depois.
 type AdiamentoPara string
 
 // AlteracaoComponente defines model for AlteracaoComponente.
