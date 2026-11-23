@@ -5,7 +5,7 @@ go 1.25.0
 require (
 	github.com/modelcontextprotocol/go-sdk v1.8.0
 	github.com/oapi-codegen/runtime v1.1.1
-	github.com/rpagliuca/rotas-e-comercios-mcp v0.3.0
+	github.com/rpagliuca/rotas-e-comercios-mcp v0.3.1
 	golang.org/x/oauth2 v0.35.0
 	modernc.org/sqlite v1.34.4
 )
