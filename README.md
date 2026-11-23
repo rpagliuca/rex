@@ -41,6 +41,12 @@ Ferramentas: `obter_tarefa`, `consultar_tarefas`, `criar_tarefa`, `alterar_taref
 `alterar_requisito`, `derivar_requisito`, `remover_derivacao`, `marcar_obsoleto`, `vincular_requisito`, `registrar_execucao`, `listar_componentes`, `criar_componente`, `vincular_componente`, `opcoes_do_lancador`, `lancar_agente`, `recursos_da_maquina`, `descer_item`, `agentes_ativos`, `listar_templates`, `obter_template`, `criar_template`, `alterar_template`, `instanciar_template`, `listar_origens`, `criar_origem`, `criar_lembrete`, `proximos_lembretes`, `adiar_lembrete`, `alterar_lembrete`, `confirmar_lembrete`, `cancelar_lembrete`, `lembretes_recorrentes`, `aguardar_resposta`, `retomar_trabalho`,
 `voz_panorama`, `voz_situacao`, `voz_enviar`, `voz_tecla`.
 
+Rotas, comércios, previsão do tempo e mapas pelo Google Maps Platform (`rota`, `planejar_visitas`,
+`buscar_comercios`, `previsao_do_tempo`, `mapa`) vêm do repositório
+[`rotas-e-comercios-mcp`](https://github.com/rpagliuca/rotas-e-comercios-mcp) e entram no MCP local e
+no conector quando há chave em `~/.config/rotas-e-comercios-mcp/chave-google` (0600); sem ela, o rex
+segue sem essas ferramentas. O módulo é privado: `GOPRIVATE=github.com/rpagliuca/*` para compilar.
+
 Sessão órfã é a que continua ativa sem agente vivo (depois de um reboot, por exemplo) e, enquanto
 existe, impede a tarefa de ganhar outra. `encerrar_sessao_orfa` (`POST /sessoes/{id}/encerramento-de-orfa`,
 com a sessão ou a tarefa presa nela) a encerra sem o token, e quem prova a orfandade é o servidor:

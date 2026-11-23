@@ -80,10 +80,10 @@ func (f *Ferramentas) ComJournals(dir string) *Ferramentas {
 // Servidor monta o servidor MCP com todas as ferramentas registradas.
 func (f *Ferramentas) Servidor() *mcp.Server {
 	s := mcp.NewServer(&mcp.Implementation{Name: "rex", Version: "0.1.0"}, &mcp.ServerOptions{
-		Instructions: "Tarefas e Sessões de Trabalho do rex. Regra: toda sessão de trabalho é registrada " +
+		Instructions: comRotas("Tarefas e Sessões de Trabalho do rex. Regra: toda sessão de trabalho é registrada " +
 			"antes da primeira ação que muda estado, qualquer que seja a origem do chat (carregue a skill rex). " +
 			"Comece por sessao_atual (o lançador pode já ter aberto a sua); senão, iniciar_sessao na tarefa, ou sem " +
-			"tarefa e depois criar_tarefa + vincular_tarefa. Ao terminar, encerrar_sessao com um resumo para o próximo agente.",
+			"tarefa e depois criar_tarefa + vincular_tarefa. Ao terminar, encerrar_sessao com um resumo para o próximo agente."),
 	})
 
 	mcp.AddTool(s, &mcp.Tool{Name: "obter_tarefa", Description: descricoes["obter_tarefa"]}, f.obterTarefa)
@@ -140,6 +140,7 @@ func (f *Ferramentas) Servidor() *mcp.Server {
 	mcp.AddTool(s, &mcp.Tool{Name: "voz_enviar", Description: "rex voz. Escreve a frase do Rafael no agente da sessão, como pedido N; com o agente trabalhando, entra na fila dele. Recusa quando ele espera uma escolha na tela (use voz_tecla). Para uma sessão falar com outra, enviar_a_sessao."}, f.vozEnviar)
 	mcp.AddTool(s, &mcp.Tool{Name: "voz_tecla", Description: "rex voz. Aperta, no agente da sessão, a opção que o Rafael escolheu numa tela de permissão (1 a 4, Enter) ou Escape para interromper o agente."}, f.vozTecla)
 	mcp.AddTool(s, &mcp.Tool{Name: "listar_eventos", Description: "Lista o log de eventos, opcionalmente de uma entidade (T-0001, S-0001)."}, f.listarEventos)
+	registrarRotas(s)
 	return s
 }
 
@@ -191,7 +192,7 @@ func doConector(nome string) *mcp.Tool {
 // sessões, ouvir o que disseram, mandar pedidos e responder às telas de permissão.
 func (f *Ferramentas) ServidorDoConector() *mcp.Server {
 	s := mcp.NewServer(&mcp.Implementation{Name: "rex", Version: "0.1.0"}, &mcp.ServerOptions{
-		Instructions: "Sessões de trabalho dos agentes de IA do Rafael no rex, quase sempre usadas por voz. " +
+		Instructions: comRotas("Sessões de trabalho dos agentes de IA do Rafael no rex, quase sempre usadas por voz. " +
 			"\"Quais sessões esperam meu input?\": voz_panorama; esperam as com aguardando, as em pedindo_permissao e as ociosas com nao_ouvidas. " +
 			"\"O que a do deploy disse?\": voz_situacao e resuma as novidades. \"Diz pra ela…\": voz_enviar com a frase como ele disse, " +
 			"depois voz_situacao com esperar_segundos 12 para contar a resposta. " +
@@ -207,7 +208,7 @@ func (f *Ferramentas) ServidorDoConector() *mcp.Server {
 			"Consultas de tarefa: consultar_tarefas e obter_tarefa. Outro pedido sem sessão própria: voz_enviar ao Agente Global. " +
 			"Na fala: curto, sem ids (chame cada sessão pelo nome curto lido como palavras), números por extenso. " +
 			"Antes de voz_tecla, leia a tela (voz_situacao), diga as opções e aperte só a que ele escolher. " +
-			"voz_panorama é leve (começo do último texto); o detalhe de uma sessão vem em voz_situacao.",
+			"voz_panorama é leve (começo do último texto); o detalhe de uma sessão vem em voz_situacao."),
 	})
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "voz_panorama",
@@ -246,6 +247,7 @@ func (f *Ferramentas) ServidorDoConector() *mcp.Server {
 	mcp.AddTool(s, doConector("encerrar_sessao_orfa"), f.encerrarSessaoOrfa)
 	mcp.AddTool(s, doConector("recursos_da_maquina"), f.recursosDaMaquina)
 	mcp.AddTool(s, doConector("descer_item"), f.descerItem)
+	registrarRotas(s)
 	return s
 }
 
