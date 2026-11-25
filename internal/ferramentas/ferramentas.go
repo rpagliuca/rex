@@ -84,7 +84,7 @@ func (f *Ferramentas) Servidor() *mcp.Server {
 			"antes da primeira ação que muda estado, qualquer que seja a origem do chat (carregue a skill rex). " +
 			"Comece por sessao_atual (o lançador pode já ter aberto a sua); senão, iniciar_sessao na tarefa, ou sem " +
 			"tarefa e depois criar_tarefa + vincular_tarefa. A mensagem ao usuário é sempre a última coisa do turno, depois de " +
-			"toda ferramenta (aguardar_resposta inclusive): texto escrito antes de uma ferramenta fica recolhido e não chega a ele. " +
+			"toda ferramenta: texto escrito antes de uma ferramenta fica recolhido e não chega a ele. " +
 			"Ao terminar, encerrar_sessao com um resumo para o próximo agente."),
 	})
 

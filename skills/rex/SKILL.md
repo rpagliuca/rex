@@ -106,19 +106,16 @@ custa nada; um agente que se encerrou sozinho obriga a subir outro e reler tudo.
 
 1. Escreva no journal e persista-o (commit só da pasta da sessão e push; se o push for recusado,
    `git pull --rebase` e push de novo; commits sem assinatura, se a máquina não tiver como assinar).
-2. `aguardar_resposta` com o que você precisa dele, em uma linha ("aprovar o PR #51", "decidir 1A ou
-   1B"): a espera aparece nas integrações da instalação (celular, barra) até você seguir.
-3. **Por último**, mande ao usuário a entrega ou o bloqueio, curto: o que ficou feito, o que falta e o
+2. **Por último**, mande ao usuário a entrega ou o bloqueio, curto: o que ficou feito, o que falta e o
    que precisa dele (perguntas numeradas, alternativas em letras, autocontidas). Se uma ferramenta
    pediu aprovação e não havia quem respondesse, diga exatamente o que ele precisa fazer.
-4. **Espere.** A tarefa fica em `em_andamento` e a sessão aberta. Quando ele responder e você voltar
-   a trabalhar, `retomar_trabalho`.
+3. **Espere.** A tarefa fica em `em_andamento` e a sessão aberta. Quando ele responder, continue.
 
 **⛔ A mensagem ao usuário é a última coisa do turno, sem nenhuma ferramenta depois dela.** Em
 interfaces como o Claude Code web e o remote-control, o texto escrito antes de uma chamada de
 ferramenta fica recolhido junto com ela e o usuário não o vê: só a mensagem final chega inteira.
-Pergunta, alternativas ou resultado escritos antes de `aguardar_resposta` (ou de um commit do
-journal, ou de qualquer outra ferramenta) são uma mensagem que você acha que mandou e ele nunca leu.
+Pergunta, alternativas ou resultado escritos antes de um commit do journal (ou de qualquer outra
+ferramenta) são uma mensagem que você acha que mandou e ele nunca leu.
 Se, depois de escrever, ainda precisar de uma ferramenta, chame-a e **repita a mensagem inteira**
 depois dela. Vale para todo turno, não só para a entrega: o que ele precisa ler vem depois da
 última ferramenta.
