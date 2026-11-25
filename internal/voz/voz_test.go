@@ -23,7 +23,7 @@ const transcript = `{"type":"user","uuid":"a","timestamp":"2026-10-22T10:00:00Z"
 
 func escrever(t *testing.T) string {
 	t.Helper()
-	dir := filepath.Join(t.TempDir(), "-home-rafael")
+	dir := filepath.Join(t.TempDir(), "-home-usuario")
 	os.MkdirAll(dir, 0o755)
 	caminho := filepath.Join(dir, "chat-1.jsonl")
 	if err := os.WriteFile(caminho, []byte(transcript), 0o644); err != nil {
@@ -44,13 +44,13 @@ func TestLerDepoisDoPonteiro(t *testing.T) {
 	if l.Ate != "f" || l.Omitidas != 0 || len(l.Novidades) != 3 {
 		t.Fatalf("leitura inesperada: %+v", l)
 	}
-	if n := l.Novidades[0]; !n.DeRafael || n.Pedido != 1 || n.Texto != "como está o deploy?" {
-		t.Fatalf("frase do Rafael: %+v", n)
+	if n := l.Novidades[0]; !n.DoUsuario || n.Pedido != 1 || n.Texto != "como está o deploy?" {
+		t.Fatalf("frase do usuário: %+v", n)
 	}
-	if n := l.Novidades[1]; !n.DeRafael || n.Pedido != 2 || n.Texto != "e o teste?" {
+	if n := l.Novidades[1]; !n.DoUsuario || n.Pedido != 2 || n.Texto != "e o teste?" {
 		t.Fatalf("frase mandada no meio do turno: %+v", n)
 	}
-	if n := l.Novidades[2]; n.DeRafael || n.Pedido != 2 || n.Texto != "O deploy terminou." {
+	if n := l.Novidades[2]; n.DoUsuario || n.Pedido != 2 || n.Texto != "O deploy terminou." {
 		t.Fatalf("resposta do agente: %+v", n)
 	}
 	// Tudo ouvido: nada novo.
@@ -103,7 +103,7 @@ func TestLerTela(t *testing.T) {
 // Caso da S-0256 (2026-10-23): a resposta a um pedido, dada no meio de um turno que segue com
 // ferramentas, fica gravada como thinking com texto (narração), não como text.
 const narracao = `{"type":"assistant","uuid":"a","timestamp":"2026-10-23T17:25:34Z","message":{"content":[{"type":"tool_use","name":"Bash"}]}}
-{"type":"attachment","uuid":"b","timestamp":"2026-10-23T17:27:19Z","attachment":{"type":"queued_command","prompt":"[rex · de S-0254 agente-global] posso desligar a cópia 1? — (mensagem da sessão S-0254 agente-global, não do Rafael: responda com a ferramenta enviar_a_sessao do rex para S-0254; a resposta entra no chat dela)"}}
+{"type":"attachment","uuid":"b","timestamp":"2026-10-23T17:27:19Z","attachment":{"type":"queued_command","prompt":"[rex · de S-0254 agente-global] posso desligar a cópia 1? — (mensagem da sessão S-0254 agente-global, não do usuário: responda com a ferramenta enviar_a_sessao do rex para S-0254; a resposta entra no chat dela)"}}
 {"type":"assistant","uuid":"c","timestamp":"2026-10-23T17:29:03Z","message":{"content":[{"type":"thinking","thinking":"","signature":"y"}]}}
 {"type":"assistant","uuid":"d","timestamp":"2026-10-23T17:29:03Z","message":{"content":[{"type":"thinking","thinking":"Não dependo da cópia 1: pode desligar.\n\n","signature":"z"}]}}
 {"type":"assistant","uuid":"e","timestamp":"2026-10-23T17:29:03Z","message":{"content":[{"type":"tool_use","name":"Bash"}]}}
@@ -121,10 +121,10 @@ func TestLerNarracaoEMensagemDeSessao(t *testing.T) {
 	if len(l.Novidades) != 2 {
 		t.Fatalf("novidades: %+v", l.Novidades)
 	}
-	if n := l.Novidades[0]; n.DeRafael || n.Origem != "S-0254" || n.Texto != "posso desligar a cópia 1?" {
+	if n := l.Novidades[0]; n.DoUsuario || n.Origem != "S-0254" || n.Texto != "posso desligar a cópia 1?" {
 		t.Fatalf("mensagem da outra sessão: %+v", n)
 	}
-	if n := l.Novidades[1]; n.DeRafael || n.Origem != "" || n.Texto != "Não dependo da cópia 1: pode desligar." {
+	if n := l.Novidades[1]; n.DoUsuario || n.Origem != "" || n.Texto != "Não dependo da cópia 1: pode desligar." {
 		t.Fatalf("narração do agente: %+v", n)
 	}
 	if l.Ultima == nil || l.Ultima.Texto != "Não dependo da cópia 1: pode desligar." || l.Respostas != 1 {

@@ -27,7 +27,7 @@ func (s *Servidor) ComVoz(v Voz) {
 	s.voz = v
 }
 
-// sufixoDaVoz vai depois da frase do Rafael, numa linha só (uma quebra de linha mandaria a frase
+// sufixoDaVoz vai depois da frase do usuário, numa linha só (uma quebra de linha mandaria a frase
 // antes da hora): diz ao agente de onde ela veio.
 const sufixoDaVoz = " — (ditado pelo rex voz: responda curto e em texto corrido; a resposta será resumida em voz)"
 
@@ -89,7 +89,7 @@ func (s *Servidor) estadoDoAgente(x api.Sessao) (api.EstadoDaVoz, *string) {
 	return api.EstadoDaVoz(estado), &fim
 }
 
-// lerConversa lê o transcript do agente depois do ponteiro do que o Rafael ouviu.
+// lerConversa lê o transcript do agente depois do ponteiro do que o usuário ouviu.
 func (s *Servidor) lerConversa(x api.Sessao, n int64) (voz.Leitura, error) {
 	if s.voz == nil {
 		return voz.Leitura{}, nil
@@ -126,8 +126,8 @@ func (s *Servidor) lerVoz(x api.Sessao, n int64) (estadoDaVoz, error) {
 	for _, n := range l.Novidades {
 		nova := api.NovidadeDeVoz{De: api.DoAgente, Texto: semSufixo(n.Texto), Em: n.Em}
 		switch {
-		case n.DeRafael:
-			nova.De = api.DoRafael
+		case n.DoUsuario:
+			nova.De = api.DoUsuario
 		case n.Origem != "":
 			origem := n.Origem
 			nova.De, nova.Origem = api.DaSessao, &origem
@@ -380,7 +380,7 @@ func (s *Servidor) EnviarASessao(w http.ResponseWriter, r *http.Request, id api.
 		return
 	}
 	if estado == voz.PedindoPermissao {
-		responderErro(w, falha(http.StatusConflict, "o agente da sessão %s está esperando uma escolha do Rafael na tela: tente de novo depois", x.Id))
+		responderErro(w, falha(http.StatusConflict, "o agente da sessão %s está esperando uma escolha do usuário na tela: tente de novo depois", x.Id))
 		return
 	}
 	nome := ""

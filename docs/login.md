@@ -77,8 +77,12 @@ confere emissor, audiência, validade, `email_verified` e a lista. O login é um
 
 Nos endereços com login, o rex serve também um servidor MCP remoto em `<url_base>/mcp` (Streamable
 HTTP, sem estado), para usar como conector personalizado no app do Claude (Customize > Connectors >
-Add custom connector, URL `https://rex.eleprograma.com.br/mcp`) e, com ele, no modo de voz. Por ora só
-tem `voz_panorama`, de leitura.
+Add custom connector, URL `https://<o seu domínio>/mcp`) e, com ele, no modo de voz. Expõe as
+ferramentas da voz, dos lembretes e as de coordenação (consultar e criar tarefas, lançar agente).
+
+As instruções que o conector entrega ao Claude são as gerais do rex mais, no fim, o texto de
+`instrucoes_do_conector` do `login.json`: as regras desta instalação que o código não conhece (as
+organizações aceitas, o que cada uma exige na descrição, a quem mandar o pedido que não tem sessão).
 
 O próprio rex é o servidor de autorização (OAuth 2.1, como o Claude exige): `/mcp` sem token responde
 `401` com `WWW-Authenticate: Bearer resource_metadata=…`; os metadados estão em

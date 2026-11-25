@@ -118,7 +118,7 @@ func registrar(h http.Handler) http.Handler {
 
 // metodoMCP lê do corpo de um POST o método JSON-RPC e, numa chamada de ferramenta, o nome dela
 // (" tools/call voz_panorama"), devolvendo o corpo intacto para o handler. Sem parâmetros: eles
-// podem trazer o que o Rafael disse.
+// podem trazer o que o usuário disse.
 func metodoMCP(r *http.Request) string {
 	if r.Method != http.MethodPost || r.Body == nil {
 		return ""

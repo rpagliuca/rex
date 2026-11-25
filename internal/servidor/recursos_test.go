@@ -58,7 +58,7 @@ func TestRecursosDaMaquina(t *testing.T) {
 		t.Fatalf("medição inesperada: %+v", r)
 	}
 	for _, trecho := range []string{"6,8 GB de 15,6 GB", "Abertos, e o que descer libera: agente-navegador 2,7 GB.", "Fechados: steam.", "homolog 0,2 GB",
-		"Esperando o Rafael, da mais antiga: medir (" + criada.Sessao.Id, "ffmpeg"} {
+		"Esperando o usuário, da mais antiga: medir (" + criada.Sessao.Id, "ffmpeg"} {
 		if !strings.Contains(r.Resumo, trecho) {
 			t.Fatalf("resumo sem %q:\n%s", trecho, r.Resumo)
 		}

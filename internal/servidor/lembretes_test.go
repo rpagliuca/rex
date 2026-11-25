@@ -289,8 +289,8 @@ func TestCurtoDoLembrete(t *testing.T) {
 	a.chamar("POST", "/lembretes", "", api.NovoLembrete{Texto: "x", Curto: ptr("natação123"), Quando: quando, Organizacao: "Exemplo"}, 201, nil)
 	a.chamar("POST", "/lembretes", "", api.NovoLembrete{Texto: "x", Curto: ptr("natação1234"), Quando: quando, Organizacao: "Exemplo"}, 400, nil)
 	var l api.Lembrete
-	a.chamar("POST", "/lembretes", "", api.NovoLembrete{Texto: "Sair para buscar a criança no ballet", Curto: ptr(" ballet "), Quando: quando, Organizacao: "Exemplo"}, 201, &l)
-	if l.Curto == nil || *l.Curto != "ballet" {
+	a.chamar("POST", "/lembretes", "", api.NovoLembrete{Texto: "Consulta no dentista", Curto: ptr(" dentista "), Quando: quando, Organizacao: "Exemplo"}, 201, &l)
+	if l.Curto == nil || *l.Curto != "dentista" {
 		t.Fatalf("curto: %+v", l.Curto)
 	}
 	a.chamar("PATCH", "/lembretes/"+l.Id, "", api.AlteracaoLembrete{Curto: ptr("balé")}, 200, &l)

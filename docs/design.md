@@ -64,7 +64,7 @@ quadrado com check). O nome ao lado, em minúsculas e em negrito: **rex**, inclu
 
 ![Logotipo do rex](logotipo.svg)
 
-- Desenho vetorizado da arte escolhida pelo Rafael (T-0216), em uma cor só: preenchido com
+- Desenho vetorizado da arte escolhida (T-0216), em uma cor só: preenchido com
   `currentColor`, segue a tinta nos dois temas.
 - Componentes em `web/src/componentes/Logotipo.tsx`: `Assinatura` (símbolo e nome, usado no topo)
   e `Logotipo` (só o símbolo). Favicon: `web/public/favicon.svg`, só a tarefa feita que o rex segura (a caixa inclinada com o check); o desenho inteiro não cabe em 16px. Arquivo para fora

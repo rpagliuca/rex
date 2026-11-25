@@ -42,8 +42,7 @@ Ferramentas: `obter_tarefa`, `consultar_tarefas`, `criar_tarefa`, `alterar_taref
 `voz_panorama`, `voz_situacao`, `voz_enviar`, `voz_tecla`.
 
 Rotas, comércios, previsão do tempo e mapas (`rota`, `planejar_visitas`, `buscar_comercios`,
-`previsao_do_tempo`, `mapa`) saíram do rex em 2026-11: ficam no MCP de smart home
-(`automacoes-residenciais-mcp`), que importa o repositório `rotas-e-comercios-mcp`.
+`previsao_do_tempo`, `mapa`) saíram do rex em 2026-11 para um servidor MCP próprio.
 
 Sessão órfã é a que continua ativa sem agente vivo (depois de um reboot, por exemplo) e, enquanto
 existe, impede a tarefa de ganhar outra. `encerrar_sessao_orfa` (`POST /sessoes/{id}/encerramento-de-orfa`,
@@ -89,7 +88,7 @@ Antes de subir um agente, o lançador mede a máquina (`GET /recursos`, ferramen
 `recursos_da_maquina`): RAM disponível, sessões do Claude Code abertas, os itens configurados (abertos
 ou não, com o que descer cada um libera), containers do docker por projeto e os 15 maiores processos por RAM e por CPU (só
 nome e pid, nunca a linha de comando). Com menos RAM disponível que o mínimo, o lançamento é recusado
-com 409 e a medição; o pedido com `forcar` sobe assim mesmo, depois de o Rafael confirmar. Sem swap,
+com 409 e a medição; o pedido com `forcar` sobe assim mesmo, depois de o usuário confirmar. Sem swap,
 quem estoura a memória não fica lento: o kernel mata um processo.
 
 Para liberar memória, `descer_item` (`POST /recursos/descida`) fecha um item: pausa a tarefa dele (o

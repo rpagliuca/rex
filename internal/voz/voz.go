@@ -2,8 +2,8 @@
 // a tela do tmux dele.
 //
 // A conversa é o transcript em ~/.claude/projects/<diretório>/<chat>.jsonl: uma linha por evento,
-// cada uma com um uuid. O ponteiro do que o Rafael já ouviu é o uuid da última linha entregue; as
-// novidades são as falas do Rafael e os textos do agente depois dele.
+// cada uma com um uuid. O ponteiro do que o usuário já ouviu é o uuid da última linha entregue; as
+// novidades são as falas do usuário e os textos do agente depois dele.
 package voz
 
 import (
@@ -31,29 +31,29 @@ func MensagemDeSessao(origem, nome, texto string) string {
 	if nome != "" {
 		quem += " " + nome
 	}
-	return PrefixoDeSessao + quem + "] " + texto + " — (mensagem da sessão " + quem + ", não do Rafael: " +
+	return PrefixoDeSessao + quem + "] " + texto + " — (mensagem da sessão " + quem + ", não do usuário: " +
 		"responda com a ferramenta enviar_a_sessao do rex para " + origem + "; a resposta entra no chat dela)"
 }
 
 var instrucaoDeSessao = regexp.MustCompile(` — \(mensagem da sessão S-\d+[^)]*\)$`)
 
-// Novidade é uma fala do Rafael, uma mensagem de outra sessão ou um texto do agente.
+// Novidade é uma fala do usuário, uma mensagem de outra sessão ou um texto do agente.
 type Novidade struct {
-	DeRafael bool
-	Origem   string // a sessão (S-0001) que mandou a mensagem; vazio quando não veio de outra sessão
-	Texto    string
-	Pedido   int // 0 quando não veio do rex voz nem responde a um pedido dele
-	Em       time.Time
+	DoUsuario bool
+	Origem    string // a sessão (S-0001) que mandou a mensagem; vazio quando não veio de outra sessão
+	Texto     string
+	Pedido    int // 0 quando não veio do rex voz nem responde a um pedido dele
+	Em        time.Time
 }
 
 // Leitura é o que aconteceu depois do ponteiro.
 type Leitura struct {
 	Novidades []Novidade
 	Omitidas  int    // novidades mais antigas que o limite deixou de fora
-	Ate       string // uuid da última linha lida: o ponteiro novo, se o Rafael ouvir tudo
+	Ate       string // uuid da última linha lida: o ponteiro novo, se o usuário ouvir tudo
 	// Ultima é o último texto do agente no transcript inteiro, antes ou depois do ponteiro.
 	Ultima *Novidade
-	// Respostas conta os textos do agente depois do ponteiro e da última fala do Rafael: o que ele
+	// Respostas conta os textos do agente depois do ponteiro e da última fala do usuário: o que ele
 	// ainda não viu, nem pela voz nem pelo chat.
 	Respostas int
 }
@@ -141,7 +141,7 @@ func Ler(caminho, depois string) (Leitura, error) {
 				continue // comando local, lembrete do sistema
 			}
 			if m := sessaoNoTexto.FindStringSubmatch(texto); m != nil {
-				// Outra sessão falou: não é o Rafael, então o que ele ainda não viu continua contando.
+				// Outra sessão falou: não é o usuário, então o que ele ainda não viu continua contando.
 				pedido = 0
 				texto = instrucaoDeSessao.ReplaceAllString(texto[len(m[0]):], "")
 				todas = append(todas, Novidade{Origem: m[1], Texto: encurtar(texto), Em: l.Timestamp})
@@ -152,7 +152,7 @@ func Ler(caminho, depois string) (Leitura, error) {
 				pedido, _ = strconv.Atoi(m[1])
 				texto = texto[len(m[0]):]
 			}
-			todas = append(todas, Novidade{DeRafael: true, Texto: encurtar(texto), Pedido: pedido, Em: l.Timestamp})
+			todas = append(todas, Novidade{DoUsuario: true, Texto: encurtar(texto), Pedido: pedido, Em: l.Timestamp})
 		case "assistant":
 			var blocos []struct {
 				Type     string `json:"type"`
@@ -220,7 +220,7 @@ const (
 const LinhasDaTela = 25
 
 // LerTela classifica a tela do Claude Code: uma pergunta com opções (permissão, escolha) espera o
-// Rafael; "esc to interrupt" na barra de baixo é um turno em andamento; o resto é o agente parado.
+// usuário; "esc to interrupt" na barra de baixo é um turno em andamento; o resto é o agente parado.
 // Devolve o fim da tela só quando ela pede uma escolha.
 func LerTela(tela string) (Estado, string) {
 	var linhas []string

@@ -64,6 +64,9 @@ type Config struct {
 	DuracaoHoras int `json:"duracao_horas"`
 	// Integracoes entram sem cookie, por token, só nas rotas dos lembretes (ver integracoes.go).
 	Integracoes []Integracao `json:"integracoes,omitempty"`
+	// InstrucoesDoConector são acrescentadas às instruções do conector do Claude (/mcp): as regras
+	// desta instalação (organizações, a quem mandar o que não tem sessão), que o código não conhece.
+	InstrucoesDoConector string `json:"instrucoes_do_conector,omitempty"`
 }
 
 // Login é a configuração carregada e validada.
@@ -80,7 +83,8 @@ type Login struct {
 	// integracoes entram por token nas rotas dos lembretes (ver integracoes.go).
 	integracoes []integracao
 	// trocar troca o código pelo id_token; é substituída nos testes.
-	trocar func(ctx context.Context, codigo, verificador string) (string, error)
+	trocar               func(ctx context.Context, codigo, verificador string) (string, error)
+	instrucoesDoConector string
 }
 
 // Carregar lê e valida o arquivo.
@@ -95,6 +99,9 @@ func Carregar(caminho string) (*Login, error) {
 	}
 	return Novo(cfg, os.Getenv)
 }
+
+// InstrucoesDoConector devolve o complemento da instalação para as instruções do conector.
+func (l *Login) InstrucoesDoConector() string { return l.instrucoesDoConector }
 
 // Novo valida a configuração; ambiente lê as variáveis (os.Getenv fora dos testes).
 func Novo(cfg Config, ambiente func(string) string) (*Login, error) {
@@ -124,6 +131,8 @@ func Novo(cfg Config, ambiente func(string) string) (*Login, error) {
 		duracao: duracaoPadrao,
 		seguro:  strings.HasPrefix(base, "https://"),
 		agora:   time.Now,
+
+		instrucoesDoConector: strings.TrimSpace(cfg.InstrucoesDoConector),
 	}
 	for _, e := range cfg.Emails {
 		l.emails = append(l.emails, strings.ToLower(strings.TrimSpace(e)))

@@ -334,7 +334,7 @@ func (s *Servidor) conferirMemoriaAoIniciar(r *http.Request, n int64, alteracao 
 	if err := s.conferirMemoria(r.Context(), false); err != nil {
 		var e *erroHTTP
 		if errors.As(err, &e) && e.recursos != nil {
-			e.mensagem = "pouca memória para subir o agente desta tarefa: confirme com o Rafael e use o lançamento " +
+			e.mensagem = "pouca memória para subir o agente desta tarefa: confirme com o usuário e use o lançamento " +
 				"(lancar_agente) com forcar, ou libere memória antes.\n" + e.recursos.Resumo
 		}
 		return err
