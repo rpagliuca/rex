@@ -604,6 +604,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/sessoes/atual": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Diz de qual sessão é o token apresentado e de quais organizações são as tarefas em que ela trabalha. Serve para um serviço fora do rex identificar o agente que lhe apresenta o token. Só responde para sessão ativa. */
+        get: operations["obterSessaoDoToken"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/sessoes/{id}": {
         parameters: {
             query?: never;
@@ -1481,6 +1498,11 @@ export interface components {
             /** @description Resumo gravado no encerramento desta sessão */
             resumo?: string;
             aguardando?: components["schemas"]["EsperaDeSessao"];
+        };
+        SessaoDoToken: {
+            sessao: components["schemas"]["Sessao"];
+            /** @description Organizações das tarefas em que a sessão trabalha agora, sem repetição, em ordem alfabética */
+            organizacoes: string[];
         };
         NovaSessao: {
             agente: string;
@@ -3009,6 +3031,27 @@ export interface operations {
             400: components["responses"]["Erro"];
             404: components["responses"]["Erro"];
             409: components["responses"]["Erro"];
+        };
+    };
+    obterSessaoDoToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sessão dona do token */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessaoDoToken"];
+                };
+            };
+            401: components["responses"]["Erro"];
         };
     };
     obterSessao: {

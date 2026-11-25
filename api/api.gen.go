@@ -992,6 +992,13 @@ type SessaoCriada struct {
 	Token  string `json:"token"`
 }
 
+// SessaoDoToken defines model for SessaoDoToken.
+type SessaoDoToken struct {
+	// Organizacoes Organizações das tarefas em que a sessão trabalha agora, sem repetição, em ordem alfabética
+	Organizacoes []string `json:"organizacoes"`
+	Sessao       Sessao   `json:"sessao"`
+}
+
 // SessaoImportada defines model for SessaoImportada.
 type SessaoImportada struct {
 	Agente      string    `json:"agente"`
@@ -1572,6 +1579,9 @@ type ClientInterface interface {
 	CriarSessaoWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	CriarSessao(ctx context.Context, body CriarSessaoJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ObterSessaoDoToken request
+	ObterSessaoDoToken(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ObterSessao request
 	ObterSessao(ctx context.Context, id Id, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2395,6 +2405,18 @@ func (c *Client) CriarSessaoWithBody(ctx context.Context, contentType string, bo
 
 func (c *Client) CriarSessao(ctx context.Context, body CriarSessaoJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCriarSessaoRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ObterSessaoDoToken(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewObterSessaoDoTokenRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -4938,6 +4960,33 @@ func NewCriarSessaoRequestWithBody(server string, contentType string, body io.Re
 	return req, nil
 }
 
+// NewObterSessaoDoTokenRequest generates requests for ObterSessaoDoToken
+func NewObterSessaoDoTokenRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sessoes/atual")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewObterSessaoRequest generates requests for ObterSessao
 func NewObterSessaoRequest(server string, id Id) (*http.Request, error) {
 	var err error
@@ -6415,6 +6464,9 @@ type ClientWithResponsesInterface interface {
 
 	CriarSessaoWithResponse(ctx context.Context, body CriarSessaoJSONRequestBody, reqEditors ...RequestEditorFn) (*CriarSessaoResponse, error)
 
+	// ObterSessaoDoTokenWithResponse request
+	ObterSessaoDoTokenWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ObterSessaoDoTokenResponse, error)
+
 	// ObterSessaoWithResponse request
 	ObterSessaoWithResponse(ctx context.Context, id Id, reqEditors ...RequestEditorFn) (*ObterSessaoResponse, error)
 
@@ -7495,6 +7547,29 @@ func (r CriarSessaoResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r CriarSessaoResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ObterSessaoDoTokenResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *SessaoDoToken
+	JSON401      *Erro
+}
+
+// Status returns HTTPResponse.Status
+func (r ObterSessaoDoTokenResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ObterSessaoDoTokenResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -8708,6 +8783,15 @@ func (c *ClientWithResponses) CriarSessaoWithResponse(ctx context.Context, body 
 		return nil, err
 	}
 	return ParseCriarSessaoResponse(rsp)
+}
+
+// ObterSessaoDoTokenWithResponse request returning *ObterSessaoDoTokenResponse
+func (c *ClientWithResponses) ObterSessaoDoTokenWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ObterSessaoDoTokenResponse, error) {
+	rsp, err := c.ObterSessaoDoToken(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseObterSessaoDoTokenResponse(rsp)
 }
 
 // ObterSessaoWithResponse request returning *ObterSessaoResponse
@@ -10601,6 +10685,39 @@ func ParseCriarSessaoResponse(rsp *http.Response) (*CriarSessaoResponse, error) 
 	return response, nil
 }
 
+// ParseObterSessaoDoTokenResponse parses an HTTP response from a ObterSessaoDoTokenWithResponse call
+func ParseObterSessaoDoTokenResponse(rsp *http.Response) (*ObterSessaoDoTokenResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ObterSessaoDoTokenResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SessaoDoToken
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Erro
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseObterSessaoResponse parses an HTTP response from a ObterSessaoWithResponse call
 func ParseObterSessaoResponse(rsp *http.Response) (*ObterSessaoResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -11887,6 +12004,9 @@ type ServerInterface interface {
 	// (POST /sessoes)
 	CriarSessao(w http.ResponseWriter, r *http.Request)
 
+	// (GET /sessoes/atual)
+	ObterSessaoDoToken(w http.ResponseWriter, r *http.Request)
+
 	// (GET /sessoes/{id})
 	ObterSessao(w http.ResponseWriter, r *http.Request, id Id)
 
@@ -13071,6 +13191,26 @@ func (siw *ServerInterfaceWrapper) CriarSessao(w http.ResponseWriter, r *http.Re
 	handler.ServeHTTP(w, r)
 }
 
+// ObterSessaoDoToken operation middleware
+func (siw *ServerInterfaceWrapper) ObterSessaoDoToken(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, TokenDaSessaoScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ObterSessaoDoToken(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ObterSessao operation middleware
 func (siw *ServerInterfaceWrapper) ObterSessao(w http.ResponseWriter, r *http.Request) {
 
@@ -14002,6 +14142,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc("PUT "+options.BaseURL+"/requisitos/{id}/obsolescencia", wrapper.MarcarObsoleto)
 	m.HandleFunc("GET "+options.BaseURL+"/sessoes", wrapper.ListarSessoes)
 	m.HandleFunc("POST "+options.BaseURL+"/sessoes", wrapper.CriarSessao)
+	m.HandleFunc("GET "+options.BaseURL+"/sessoes/atual", wrapper.ObterSessaoDoToken)
 	m.HandleFunc("GET "+options.BaseURL+"/sessoes/{id}", wrapper.ObterSessao)
 	m.HandleFunc("PATCH "+options.BaseURL+"/sessoes/{id}", wrapper.AlterarSessao)
 	m.HandleFunc("POST "+options.BaseURL+"/sessoes/{id}/encerramento", wrapper.EncerrarSessao)

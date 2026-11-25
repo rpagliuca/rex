@@ -183,3 +183,12 @@ mas de uma sessão a outra: a origem é a dona do token. A mensagem chega como
 S-0001; …)`, e a resposta, pela mesma rota no sentido inverso, entra no chat da origem como mensagem
 nova. Assim nenhuma sessão precisa ler a conversa ou a tela da outra para saber o que ela respondeu.
 Cada mensagem vira o evento `mensagem_de_sessao` na sessão de destino.
+
+## Identidade de uma sessão para um serviço externo
+
+`GET /sessoes/atual`, com `Authorization: Bearer <token da sessão>`, devolve a sessão dona do token e
+as organizações das tarefas em que ela trabalha agora (`organizacoes`, sem repetição). É a única
+leitura que exige token, porque a resposta é a identidade de quem pergunta. Um serviço fora do rex
+(um proxy que guarda credenciais, por exemplo) recebe o token do agente, pergunta aqui de quem ele é
+e decide com base na sessão e na organização. Token desconhecido ou de sessão encerrada: `401`. Assim
+a identidade do agente dura exatamente o que dura a sessão, sem outro token para emitir ou revogar.

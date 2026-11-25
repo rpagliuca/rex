@@ -800,6 +800,42 @@ func TestBuscaArvoreETrilhas(t *testing.T) {
 	}
 }
 
+func TestSessaoDoToken(t *testing.T) {
+	a := novoAmbiente(t)
+	a.tarefa("Configurar backup")
+	var outraFrente api.Tarefa
+	a.chamar("POST", "/tarefas", "", api.NovaTarefa{Titulo: "Outra frente", Organizacao: "Outra"}, 201, &outraFrente)
+	s := a.sessao("Claude Opus 5.5 Medium", "T-0001")
+	semTarefa := a.sessao("Claude Opus 5.5 Medium")
+
+	a.chamar("GET", "/sessoes/atual", "", nil, 401, nil)
+	a.chamar("GET", "/sessoes/atual", "token-que-nao-existe", nil, 401, nil)
+
+	var x api.SessaoDoToken
+	a.chamar("GET", "/sessoes/atual", s.Token, nil, 200, &x)
+	if x.Sessao.Id != s.Sessao.Id || len(x.Organizacoes) != 1 || x.Organizacoes[0] != "Exemplo" {
+		t.Fatalf("sessão do token: %+v", x)
+	}
+	a.chamar("GET", "/sessoes/atual", semTarefa.Token, nil, 200, &x)
+	if x.Sessao.Id != semTarefa.Sessao.Id || len(x.Organizacoes) != 0 {
+		t.Fatalf("sessão sem tarefa: %+v", x)
+	}
+
+	// Mais uma tarefa, de outra organização: as duas aparecem, em ordem.
+	a.chamar("POST", "/sessoes/"+s.Sessao.Id+"/tarefas", s.Token, api.Vinculo{Tarefa: outraFrente.Id}, 200, nil)
+	a.chamar("GET", "/sessoes/atual", s.Token, nil, 200, &x)
+	if len(x.Organizacoes) != 2 || x.Organizacoes[0] != "Exemplo" || x.Organizacoes[1] != "Outra" {
+		t.Fatalf("organizações: %+v", x.Organizacoes)
+	}
+
+	// Sessão encerrada: o token deixa de identificar alguém.
+	a.chamar("POST", "/sessoes/"+s.Sessao.Id+"/encerramento", s.Token, api.Encerramento{Resumo: "feito"}, 200, nil)
+	a.chamar("GET", "/sessoes/atual", s.Token, nil, 401, nil)
+
+	// O caminho fixo não esconde a leitura de uma sessão pelo id.
+	a.chamar("GET", "/sessoes/"+semTarefa.Sessao.Id, "", nil, 200, nil)
+}
+
 func TestSessaoRenomeada(t *testing.T) {
 	a := novoAmbiente(t)
 	a.tarefa("Configurar backup")

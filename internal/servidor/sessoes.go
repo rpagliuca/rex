@@ -256,6 +256,50 @@ func (s *Servidor) ObterSessao(w http.ResponseWriter, r *http.Request, id api.Id
 	responder(w, http.StatusOK, x)
 }
 
+// ObterSessaoDoToken diz de quem é o token: a sessão ativa dona dele e as organizações das tarefas
+// em que ela trabalha agora. É a única leitura que exige token, porque a resposta é a identidade
+// de quem pergunta: um serviço fora do rex a usa para saber qual agente lhe apresentou o token.
+func (s *Servidor) ObterSessaoDoToken(w http.ResponseWriter, r *http.Request) {
+	if tokenDaRequisicao(r) == "" {
+		responderErro(w, falha(http.StatusUnauthorized, "esta operação exige o token de uma sessão"))
+		return
+	}
+	resposta := api.SessaoDoToken{Organizacoes: []string{}}
+	err := s.emTransacao(func(tx *sql.Tx) error {
+		dona, err := autor(tx, r)
+		if err != nil {
+			return err
+		}
+		n, err := numero(dona, "S")
+		if err != nil {
+			return err
+		}
+		if resposta.Sessao, err = carregarSessao(tx, n); err != nil {
+			return err
+		}
+		linhas, err := tx.Query(`SELECT DISTINCT t.organizacao FROM tarefas t
+			JOIN sessao_tarefa st ON st.tarefa_id = t.id
+			WHERE st.sessao_id = ? AND st.ativa = 1 ORDER BY t.organizacao`, n)
+		if err != nil {
+			return err
+		}
+		defer linhas.Close()
+		for linhas.Next() {
+			var organizacao string
+			if err := linhas.Scan(&organizacao); err != nil {
+				return err
+			}
+			resposta.Organizacoes = append(resposta.Organizacoes, organizacao)
+		}
+		return linhas.Err()
+	})
+	if err != nil {
+		responderErro(w, err)
+		return
+	}
+	responder(w, http.StatusOK, resposta)
+}
+
 // operarSessao autentica a sessão, executa f e devolve a sessão atualizada (e se deu certo).
 func (s *Servidor) operarSessao(w http.ResponseWriter, r *http.Request, id api.Id, corpo any,
 	f func(tx *sql.Tx, n int64) error) (api.Sessao, bool) {

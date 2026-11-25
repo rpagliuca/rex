@@ -740,6 +740,22 @@ paths:
         '400': { $ref: '#/components/responses/Erro' }
         '404': { $ref: '#/components/responses/Erro' }
         '409': { $ref: '#/components/responses/Erro' }
+  /sessoes/atual:
+    get:
+      operationId: obterSessaoDoToken
+      description: >-
+        Diz de qual sessão é o token apresentado e de quais organizações são as tarefas em que ela
+        trabalha. Serve para um serviço fora do rex identificar o agente que lhe apresenta o token.
+        Só responde para sessão ativa.
+      security:
+        - tokenDaSessao: []
+      responses:
+        '200':
+          description: Sessão dona do token
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SessaoDoToken' }
+        '401': { $ref: '#/components/responses/Erro' }
   /sessoes/{id}:
     parameters:
       - $ref: '#/components/parameters/Id'
@@ -1796,6 +1812,15 @@ components:
         encerrada_em: { type: string, format: date-time }
         resumo: { type: string, description: Resumo gravado no encerramento desta sessão }
         aguardando: { $ref: '#/components/schemas/EsperaDeSessao' }
+    SessaoDoToken:
+      type: object
+      required: [sessao, organizacoes]
+      properties:
+        sessao: { $ref: '#/components/schemas/Sessao' }
+        organizacoes:
+          type: array
+          items: { type: string }
+          description: Organizações das tarefas em que a sessão trabalha agora, sem repetição, em ordem alfabética
     NovaSessao:
       type: object
       required: [agente, tipo_agente, servidor, tarefas]
