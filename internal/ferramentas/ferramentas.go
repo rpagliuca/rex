@@ -83,7 +83,9 @@ func (f *Ferramentas) Servidor() *mcp.Server {
 		Instructions: ("Tarefas e Sessões de Trabalho do rex. Regra: toda sessão de trabalho é registrada " +
 			"antes da primeira ação que muda estado, qualquer que seja a origem do chat (carregue a skill rex). " +
 			"Comece por sessao_atual (o lançador pode já ter aberto a sua); senão, iniciar_sessao na tarefa, ou sem " +
-			"tarefa e depois criar_tarefa + vincular_tarefa. Ao terminar, encerrar_sessao com um resumo para o próximo agente."),
+			"tarefa e depois criar_tarefa + vincular_tarefa. A mensagem ao usuário é sempre a última coisa do turno, depois de " +
+			"toda ferramenta (aguardar_resposta inclusive): texto escrito antes de uma ferramenta fica recolhido e não chega a ele. " +
+			"Ao terminar, encerrar_sessao com um resumo para o próximo agente."),
 	})
 
 	mcp.AddTool(s, &mcp.Tool{Name: "obter_tarefa", Description: descricoes["obter_tarefa"]}, f.obterTarefa)
@@ -132,7 +134,7 @@ func (f *Ferramentas) Servidor() *mcp.Server {
 	mcp.AddTool(s, &mcp.Tool{Name: "confirmar_lembrete", Description: descricoes["confirmar_lembrete"]}, f.confirmarLembrete)
 	mcp.AddTool(s, &mcp.Tool{Name: "cancelar_lembrete", Description: descricoes["cancelar_lembrete"]}, f.cancelarLembrete)
 	mcp.AddTool(s, &mcp.Tool{Name: "lembretes_recorrentes", Description: descricoes["lembretes_recorrentes"]}, f.lembretesRecorrentes)
-	mcp.AddTool(s, &mcp.Tool{Name: "aguardar_resposta", Description: "Avisa que a sessão deste chat entregou ou está bloqueada e espera o usuário (aprovação, decisão, informação). Aparece nas pendências até retomar_trabalho ou o encerramento."}, f.aguardarResposta)
+	mcp.AddTool(s, &mcp.Tool{Name: "aguardar_resposta", Description: "Avisa que a sessão deste chat entregou ou está bloqueada e espera o usuário (aprovação, decisão, informação). Aparece nas pendências até retomar_trabalho ou o encerramento. Chame ANTES de escrever a mensagem ao usuário: a mensagem completa (resultado, perguntas, alternativas) vem depois desta chamada, como a última coisa do turno, pois o texto escrito antes de uma ferramenta fica recolhido e o usuário não o vê."}, f.aguardarResposta)
 	mcp.AddTool(s, &mcp.Tool{Name: "retomar_trabalho", Description: "Tira a sessão deste chat da espera: o usuário respondeu e o trabalho continuou."}, f.retomarTrabalho)
 	mcp.AddTool(s, &mcp.Tool{Name: "voz_panorama", Description: "rex voz. As sessões ativas, cada uma com o que o agente faz agora (trabalhando, ocioso, pedindo_permissao, sem_agente), o que pediu ao usuário (aguardando), quantas novidades ele não ouviu e o começo do último texto do agente; a tela e o texto inteiro vêm em voz_situacao. Responde \"quais sessões esperam meu input?\" numa chamada; não marca nada como ouvido."}, f.vozPanorama)
 	mcp.AddTool(s, &mcp.Tool{Name: "voz_situacao", Description: "rex voz. Uma sessão (S-0001, ou a sessão ativa da tarefa T-0001): o que o agente faz agora e as novidades da conversa dele que o usuário ainda não ouviu. Só leitura: nada fica como ouvido (isso é do conector do app do Claude). esperar_segundos segura até o agente responder ou parar."}, f.vozSituacao)
