@@ -210,7 +210,7 @@ func TestMensagemEntreSessoes(t *testing.T) {
 		t.Fatalf("resposta: %+v %q", m, v.escritos[1])
 	}
 
-	// No rex voz, a mensagem aparece como da sessão, não do Rafael.
+	// No rex voz, a mensagem aparece como da sessão, não do usuário.
 	conversa, _ := json.Marshal(map[string]any{"type": "attachment", "uuid": "x1", "timestamp": "2026-10-23T17:27:19Z",
 		"attachment": map[string]any{"type": "queued_command", "prompt": escrito}})
 	os.WriteFile(v.conversa, append(conversa, '\n'), 0o644)

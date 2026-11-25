@@ -92,7 +92,7 @@ func (s *Servidor) AguardarResposta(w http.ResponseWriter, r *http.Request, id a
 	var espera api.Espera
 	s.operarSessao(w, r, id, &espera, func(tx *sql.Tx, n int64) error {
 		if vazio(espera.Mensagem) {
-			return falha(http.StatusBadRequest, "a mensagem é obrigatória: é o que o Rafael precisa responder")
+			return falha(http.StatusBadRequest, "a mensagem é obrigatória: é o que o usuário precisa responder")
 		}
 		mensagem := strings.TrimSpace(espera.Mensagem)
 		if _, err := tx.Exec(`UPDATE sessoes SET aguardando = ?, aguardando_desde = ? WHERE id = ?`, mensagem, s.momento(), n); err != nil {

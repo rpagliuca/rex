@@ -198,7 +198,7 @@ func TestRepasseTrocaAgenteEmUmaOperacao(t *testing.T) {
 	}
 
 	// A sessão antiga não pode repassar de novo.
-	a.chamar("POST", caminho, s.Token, api.Repasse{Agente: "Rafael", TipoAgente: api.Humano}, 409, nil)
+	a.chamar("POST", caminho, s.Token, api.Repasse{Agente: "Pessoa", TipoAgente: api.Humano}, 409, nil)
 }
 
 func TestInvariantesNoBanco(t *testing.T) {

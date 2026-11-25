@@ -9,8 +9,8 @@ import (
 	"github.com/rpagliuca/rex/internal/voz"
 )
 
-// O rex voz fala com o agente de uma sessão pelo tmux dele: lê a tela, escreve a frase do Rafael
-// e aperta teclas, como o Rafael faria no laptop.
+// O rex voz fala com o agente de uma sessão pelo tmux dele: lê a tela, escreve a frase do usuário
+// e aperta teclas, como o usuário faria no laptop.
 
 // ErrSemAgente é a sessão ativa cujo tmux não foi achado.
 var ErrSemAgente = errors.New("o tmux do agente desta sessão não foi achado")

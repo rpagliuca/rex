@@ -812,7 +812,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description O Rafael viu o lembrete. Vale para disparado e também para agendado/adiado (confirmar antes da
+        /** @description O usuário viu o lembrete. Vale para disparado e também para agendado/adiado (confirmar antes da
          *     hora encerra o lembrete sem disparar). Repetir em um confirmado devolve 200 sem novo evento.
          *      */
         post: operations["confirmarLembrete"];
@@ -876,7 +876,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description O agente entregou ou ficou bloqueado e está esperando o Rafael. Fica em `aguardando` na sessão
+        /** @description O agente entregou ou ficou bloqueado e está esperando o usuário. Fica em `aguardando` na sessão
          *     e nas pendências até `DELETE` (o agente retomou) ou o encerramento da sessão.
          *      */
         post: operations["aguardarResposta"];
@@ -917,7 +917,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Retrato do que pede atenção do Rafael agora, para integrações que fazem polling (ver
+        /** @description Retrato do que pede atenção do usuário agora, para integrações que fazem polling (ver
          *     docs/integracao.md). É estado, não histórico: um consumidor que perdeu chamadas se recupera na
          *     seguinte. Lembretes: os disparados (até confirmar ou adiar) e os agendados/adiados com hora
          *     marcada até `horizonte`; as antecedências de apresentação são do consumidor.
@@ -939,7 +939,7 @@ export interface paths {
             cookie?: never;
         };
         /** @description As sessões ativas, cada uma com o que o agente faz agora (lido da tela
-         *     do tmux), se pediu resposta ao Rafael, quantas novidades ele ainda não ouviu e o último texto do
+         *     do tmux), se pediu resposta ao usuário, quantas novidades ele ainda não ouviu e o último texto do
          *     agente (só o começo). Leve: responde "quais sessões esperam meu input?" numa chamada; o detalhe
          *     de uma sessão (tela, novidades inteiras) vem em /voz/sessoes/{id}. Não mexe nos ponteiros.
          *      */
@@ -960,7 +960,7 @@ export interface paths {
             cookie?: never;
         };
         /** @description Uma sessão (S-0001, ou a sessão ativa da tarefa T-0001): o que o agente está fazendo agora e as
-         *     novidades da conversa dele depois do ponteiro do que o Rafael já ouviu. Sem `ouvir`, não avança
+         *     novidades da conversa dele depois do ponteiro do que o usuário já ouviu. Sem `ouvir`, não avança
          *     o ponteiro. Com `ouvir`, as novidades viram ouvidas na hora: é o caso do conector do app do
          *     Claude, que fala o que recebe. Com `esperar`, segura a resposta até o agente responder algo novo
          *     ou parar de trabalhar.
@@ -983,7 +983,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Escreve a frase do Rafael no agente da sessão, numerada como pedido N. Com o agente trabalhando,
+        /** @description Escreve a frase do usuário no agente da sessão, numerada como pedido N. Com o agente trabalhando,
          *     o Claude Code a põe na fila dele, em ordem. Recusada (409) quando o agente está numa tela de
          *     permissão: a frase cairia na escolha; responda antes com as teclas.
          *      */
@@ -1004,7 +1004,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** @description Aperta uma tecla no agente da sessão: um número ou Enter só numa tela de permissão (a escolha
-         *     que o Rafael falou); Escape interrompe o agente a qualquer momento.
+         *     que o usuário falou); Escape interrompe o agente a qualquer momento.
          *      */
         post: operations["teclarVoz"];
         delete?: never;
@@ -1171,7 +1171,7 @@ export interface components {
             status: components["schemas"]["StatusTarefa"];
             organizacao: string;
             sessao_ativa?: string;
-            /** @description O que a sessão ativa espera do Rafael, se está aguardando */
+            /** @description O que a sessão ativa espera do usuário, se está aguardando */
             aguardando?: string;
         };
         ConsultaDeTarefas: {
@@ -1369,7 +1369,7 @@ export interface components {
             esforco?: string;
             /** @description Nome curto da sessão do agente (tmux e remote-control), dizendo o assunto do trabalho; padrão: derivado do título */
             nome?: string;
-            /** @description Sobe mesmo com menos RAM disponível que o mínimo; só depois de o Rafael confirmar */
+            /** @description Sobe mesmo com menos RAM disponível que o mínimo; só depois de o usuário confirmar */
             forcar?: boolean;
         };
         Recursos: {
@@ -1393,7 +1393,7 @@ export interface components {
             erro_docker?: string;
             maiores_por_memoria: components["schemas"]["ProcessoNaMaquina"][];
             maiores_por_cpu: components["schemas"]["ProcessoNaMaquina"][];
-            /** @description Os números acima em poucas linhas, para dizer ao Rafael */
+            /** @description Os números acima em poucas linhas, para dizer ao usuário */
             resumo: string;
         };
         SessaoNaMaquina: {
@@ -1558,7 +1558,7 @@ export interface components {
          */
         StatusLembrete: "agendado" | "disparado" | "adiado" | "confirmado" | "cancelado";
         /**
-         * @description Quão exata é a hora marcada. hora: o Rafael disse data e hora explícitas; o lembrete é
+         * @description Quão exata é a hora marcada. hora: o usuário disse data e hora explícitas; o lembrete é
          *     sensível ao horário e as integrações podem tocar alarme. turno, dia, semana, fim_de_semana ou
          *     mes: vale para uma janela, e o rex põe `quando` no início dela e grava o `fim`, então os da
          *     mesma janela disparam juntos e as integrações os avisam em lote, sem alarme. As janelas: o
@@ -1586,7 +1586,7 @@ export interface components {
             texto: string;
             /**
              * @description Palavra-chave para os resumos de pouco espaço (a ilha do iPhone), até 10 caracteres
-             * @example ballet
+             * @example dentista
              */
             curto?: string;
             /**
@@ -1650,7 +1650,7 @@ export interface components {
         };
         NovoLembrete: {
             texto: string;
-            /** @description Palavra-chave do lembrete, até 10 caracteres ("ballet", "dentista"); sem ela, as integrações usam o começo do texto */
+            /** @description Palavra-chave do lembrete, até 10 caracteres ("dentista", "reunião"); sem ela, as integrações usam o começo do texto */
             curto?: string;
             /**
              * Format: date-time
@@ -1752,11 +1752,11 @@ export interface components {
             /** @description Títulos das tarefas, na mesma ordem */
             titulos?: string[];
             estado: components["schemas"]["EstadoDaVoz"];
-            /** @description Palavras do nome da sessão, para achar a de que o Rafael fala */
+            /** @description Palavras do nome da sessão, para achar a de que o usuário fala */
             palavras_chave?: string[];
-            /** @description O que o agente pediu ao Rafael (aguardar_resposta), se pediu */
+            /** @description O que o agente pediu ao usuário (aguardar_resposta), se pediu */
             aguardando?: string;
-            /** @description Textos do agente depois do ponteiro do que o Rafael ouviu e da última fala dele na sessão */
+            /** @description Textos do agente depois do ponteiro do que o usuário ouviu e da última fala dele na sessão */
             nao_ouvidas: number;
             /** @description Começo do último texto do agente, até uns 200 caracteres: o texto inteiro, a tela e as novidades vêm na situação da sessão */
             ultima?: string;
@@ -1765,10 +1765,10 @@ export interface components {
         };
         NovidadeDeVoz: {
             /**
-             * @description rafael (fala dele, inclusive pelo rex voz), sessao (mensagem de outra sessão, ver origem) ou agente
+             * @description usuario (fala dele, inclusive pelo rex voz), sessao (mensagem de outra sessão, ver origem) ou agente
              * @enum {string}
              */
-            de: "rafael" | "sessao" | "agente";
+            de: "usuario" | "sessao" | "agente";
             /** @description Sessão (S-0001) que mandou a mensagem, quando de é sessao */
             origem?: string;
             texto: string;
@@ -1798,7 +1798,7 @@ export interface components {
             tecla: "1" | "2" | "3" | "4" | "Enter" | "Escape";
         };
         Espera: {
-            /** @description O que o agente precisa do Rafael, em uma linha */
+            /** @description O que o agente precisa do usuário, em uma linha */
             mensagem: string;
         };
         EsperaDeSessao: {
@@ -1814,7 +1814,7 @@ export interface components {
             /** @description Disparados primeiro, depois os que vencem até horizonte_ate, por hora marcada */
             lembretes: components["schemas"]["Lembrete"][];
             tarefas_em_validacao: components["schemas"]["Tarefa"][];
-            /** @description Sessões ativas cujo agente espera resposta do Rafael */
+            /** @description Sessões ativas cujo agente espera resposta do usuário */
             sessoes_aguardando: components["schemas"]["Sessao"][];
             /**
              * Format: int64

@@ -541,7 +541,7 @@ func TestServidorDoConectorSoVozEmProcesso(t *testing.T) {
 	t.Cleanup(func() { db.Close() })
 	ctx := context.Background()
 	ladoServidor, ladoCliente := mcp.NewInMemoryTransports()
-	if _, err := NovoEmProcesso(servidor.Novo(db).Handler()).ServidorDoConector().Connect(ctx, ladoServidor, nil); err != nil {
+	if _, err := NovoEmProcesso(servidor.Novo(db).Handler()).ServidorDoConector("Tarefa da Exemplo leva Work=.").Connect(ctx, ladoServidor, nil); err != nil {
 		t.Fatal(err)
 	}
 	sessao, err := mcp.NewClient(&mcp.Implementation{Name: "teste", Version: "0"}, nil).Connect(ctx, ladoCliente, nil)
@@ -549,6 +549,11 @@ func TestServidorDoConectorSoVozEmProcesso(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { sessao.Close() })
+	// As instruções gerais valem sempre; o complemento da instalação vem no fim.
+	if inst := sessao.InitializeResult().Instructions; !strings.HasPrefix(inst, "Sessões de trabalho") ||
+		!strings.HasSuffix(inst, " Tarefa da Exemplo leva Work=.") {
+		t.Fatalf("instruções do conector: %q", inst)
+	}
 	lista, err := sessao.ListTools(ctx, nil)
 	var nomes []string
 	for _, f := range lista.Tools {

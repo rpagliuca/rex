@@ -1,6 +1,6 @@
 ---
 name: rex
-description: "Ciclo de trabalho de um agente de IA no rex pelas ferramentas MCP: toda sessão de trabalho é registrada antes da primeira ação que muda estado; abrir ou adotar a Sessão de Trabalho, achar ou criar a Tarefa, escrever o journal, mudar o status, entregar e esperar (nunca se encerrar sem pedido claro do Rafael ou do lançador), encerrar com resumo. Use SEMPRE no início de qualquer trabalho num chat em que as ferramentas mcp__rex__* estejam disponíveis — investigar, alterar, escrever código, documentar, operar sistemas —, qualquer que seja a origem do chat. Use também ao retomar ou encerrar trabalho, quando o prompt citar uma tarefa T-0001 ou sessão S-0001, quando REX_TAREFA ou REX_SESSAO estiver no ambiente, ou quando pedirem para este chat virar (se promover a) uma tarefa. Triggers: começar a trabalhar, continue a partir do CLAUDE.md, retomar, rex, tarefa T-, sessão S-, iniciar_sessao, sessao_atual, encerrar_sessao, repassar_sessao, resumo para retomar, journal da sessão, a tarefa foi movida, a tarefa já tem a sessão ativa, se promover a tarefa, criar lembrete, me lembra de, alterar lembrete."
+description: "Ciclo de trabalho de um agente de IA no rex pelas ferramentas MCP: toda sessão de trabalho é registrada antes da primeira ação que muda estado; abrir ou adotar a Sessão de Trabalho, achar ou criar a Tarefa, escrever o journal, mudar o status, entregar e esperar (nunca se encerrar sem pedido claro do usuário ou do lançador), encerrar com resumo. Use SEMPRE no início de qualquer trabalho num chat em que as ferramentas mcp__rex__* estejam disponíveis — investigar, alterar, escrever código, documentar, operar sistemas —, qualquer que seja a origem do chat. Use também ao retomar ou encerrar trabalho, quando o prompt citar uma tarefa T-0001 ou sessão S-0001, quando REX_TAREFA ou REX_SESSAO estiver no ambiente, ou quando pedirem para este chat virar (se promover a) uma tarefa. Triggers: começar a trabalhar, continue a partir do CLAUDE.md, retomar, rex, tarefa T-, sessão S-, iniciar_sessao, sessao_atual, encerrar_sessao, repassar_sessao, resumo para retomar, journal da sessão, a tarefa foi movida, a tarefa já tem a sessão ativa, se promover a tarefa, criar lembrete, me lembra de, alterar lembrete."
 user-invocable: true
 ---
 
@@ -45,7 +45,7 @@ Há dois caminhos.
    o resumo não cobrir.
 4. Se o prompt trouxer uma **instrução adicional de reabertura**, ela é o ponto de partida; o resto
    do contexto vem da tarefa e das sessões anteriores.
-5. Confira o **nome** da sessão (`sessao_atual`): é o que o Rafael vê no tmux e na lista do Claude
+5. Confira o **nome** da sessão (`sessao_atual`): é o que o usuário vê no tmux e na lista do Claude
    Code web. Se não disser o assunto do trabalho, troque-o com `renomear_sessao` (ver "Durante").
 
 Nada que mude estado (comandos, PRs, consultas que alterem algo) antes de conferir a sessão.
@@ -74,7 +74,7 @@ Toda tarefa tenta atender algum requisito e mexe em algum componente. Para achá
 4. Só para criar um requisito novo, `arvore_de_requisitos` (da organização, ou do componente) para
    escolher o pai. Requisito é afirmação testável; no máximo 5 derivados por pai.
 
-Na dúvida, não ligue: tarefa sem requisito aparece para o Rafael na triagem. Ligar errado é pior.
+Na dúvida, não ligue: tarefa sem requisito aparece para o usuário na triagem. Ligar errado é pior.
 
 ## Durante
 
@@ -89,24 +89,24 @@ Na dúvida, não ligue: tarefa sem requisito aparece para o Rafael na triagem. L
 
 ## Falar com outra sessão
 
-- **Mensagem que chega** como `[rex · de S-0254 nome] …` vem de outra sessão, não do Rafael. Responda
+- **Mensagem que chega** como `[rex · de S-0254 nome] …` vem de outra sessão, não do usuário. Responda
   com `enviar_a_sessao(sessao: "S-0254", texto)`: a resposta entra no chat dela. Responder só no seu
   chat não chega a ela.
 - **Para perguntar** a outra sessão, `enviar_a_sessao` também. A resposta chega aqui como mensagem
   nova: não fique consultando `voz_situacao` e **nunca leia a tela do tmux de outro agente**
-  (`capture-pane`) para achar a resposta. `voz_enviar` é a voz do Rafael; não use para falar em seu
+  (`capture-pane`) para achar a resposta. `voz_enviar` é a voz do usuário; não use para falar em seu
   nome.
 
 ## Ao terminar o trabalho: entregue e espere
 
 **Você não encerra a sessão por conta própria.** Terminar a entrega, ficar bloqueado, precisar de
-uma aprovação ou de uma resposta do Rafael **não** são motivos para encerrar: ele acompanha pelo
+uma aprovação ou de uma resposta do usuário **não** são motivos para encerrar: ele acompanha pelo
 remote-control e pode querer continuar, corrigir ou aprovar algo. Um agente parado esperando não
 custa nada; um agente que se encerrou sozinho obriga a subir outro e reler tudo.
 
 1. Escreva no journal e persista-o (commit só da pasta da sessão e push; se o push for recusado,
    `git pull --rebase` e push de novo; commits sem assinatura, se a máquina não tiver como assinar).
-2. Mande ao Rafael a entrega ou o bloqueio, curto: o que ficou feito, o que falta e o que precisa
+2. Mande ao usuário a entrega ou o bloqueio, curto: o que ficou feito, o que falta e o que precisa
    dele (perguntas numeradas, alternativas em letras). Se uma ferramenta pediu aprovação e não havia
    quem respondesse, diga exatamente o que ele precisa fazer.
 3. `aguardar_resposta` com o que você precisa dele, em uma linha ("aprovar o PR #51", "decidir 1A ou
@@ -116,13 +116,13 @@ custa nada; um agente que se encerrou sozinho obriga a subir outro e reler tudo.
 
 Encerre **só** quando o desejo de encerrar for claro:
 
-- **O Rafael pediu**, com palavras que não deixam dúvida ("pode encerrar", "fecha a sessão", "terminou,
+- **O usuário pediu**, com palavras que não deixam dúvida ("pode encerrar", "fecha a sessão", "terminou,
   pode concluir"). "Ok", "valeu" ou silêncio não são pedido de encerramento. Na dúvida, pergunte.
 - **O lançador pediu** (a tarefa foi movida por outra pessoa): ver a seção seguinte.
 
 Para encerrar, a pedido:
 
-1. Ajuste o status, se o Rafael não disse outro: `em_validacao` (pronto, falta ele validar),
+1. Ajuste o status, se o usuário não disse outro: `em_validacao` (pronto, falta ele validar),
    `concluida`, `bloqueada` (dependência externa; diga qual no resumo), `pausada` ou `cancelada` (ele
    desistiu do trabalho; nunca `concluida` com uma nota no lugar).
 2. Persista o journal (como acima).
@@ -141,7 +141,7 @@ Para encerrar, a pedido:
 A mensagem diz que a tarefa foi movida para outro status por outra pessoa. **Não altere o status**:
 quem moveu já decidiu. Pare o que estiver fazendo, registre no journal onde parou, chame
 `encerrar_sessao` com o resumo para retomar, persista o journal e feche o seu tmux como nos passos 2 a
-4 acima. Esse é o único caso em que você encerra sem o Rafael pedir no chat.
+4 acima. Esse é o único caso em que você encerra sem o usuário pedir no chat.
 
 ## Recusas e o que fazer
 
@@ -160,7 +160,7 @@ atual termina como substituída e outra começa com as mesmas tarefas. Só quand
 
 ## Lembretes
 
-Compromisso que o Rafael pediu para lembrar (ou que a tarefa exige, como "renovar o certificado na
+Compromisso que o usuário pediu para lembrar (ou que a tarefa exige, como "renovar o certificado na
 sexta às 9"): `criar_lembrete` com `quando` em RFC 3339 com fuso, ligado à tarefa quando for dela. A
 `precisao` sai do que ele disse: `hora` só com data e hora explícitas ("sexta às 9"), `turno` para
 "de manhã", "no almoço", "à tarde" ou "à noite", `dia` para "amanhã" ou "sexta" sem hora, `semana`
@@ -171,7 +171,7 @@ alarme; os demais são avisados em lote, sem som. Na precisão `hora`, `aviso_ma
 ilha do iPhone, 2 sem som (padrão: também notificação silenciosa e lâmpada 10 min antes), 3 com som
 (também alarme 5 min antes); 3 só quando ele pedir som, e se o retorno trouxer `alerta` (alarme de
 madrugada), repasse-o. Preencha `curto` com a palavra-chave do compromisso
-(até 10 caracteres: "ballet", "dentista", "Vivo"): é o que cabe no resumo da ilha do iPhone, e sem
+(até 10 caracteres: "dentista", "reunião", "deploy"): é o que cabe no resumo da ilha do iPhone, e sem
 ela a ilha mostra o começo do texto. O rex grava o fim da janela ao salvar: o dia vai até a
 meia-noite, a semana de segunda às 8h até **sexta às 18h** (pedida no sábado ou domingo, já é a
 semana seguinte), o fim de semana de sábado às 8h até domingo à meia-noite, e o mês do dia 1 até o
@@ -183,7 +183,7 @@ qualquer precisão. Disparado não é vencido, e só `vencido` é atrasado. As j
 para fazer no período corrente, até o fim dela; então nunca entram num "adia os de ontem";
 `confirmar_lembrete` só quando ele disser que viu ou fez. Para mudar o texto, o curto, a hora, a precisão ou a
 ligação de um lembrete, `alterar_lembrete` (mantém o id); `cancelar_lembrete` só quando ele disser
-que o lembrete não vale mais. Nunca cancele e recrie para editar: o Rafael vê o antigo como
+que o lembrete não vale mais. Nunca cancele e recrie para editar: o usuário vê o antigo como
 cancelado, e cancelado não volta. O rex guarda a hora; avisar com antecedência é das integrações.
 
 **Recorrentes** ("todo dia 1º", "toda segunda", "todo ano"): `criar_lembrete` com `recorrencia`
@@ -199,18 +199,16 @@ Depois de `criar_lembrete` ou `alterar_lembrete`, confira no retorno (e, na dúv
 `proximos_lembretes`) que texto, data, precisão e organização ficaram como ele pediu, e diga a ele o
 que ficou gravado. Se algo saiu diferente, corrija com `alterar_lembrete` e avise.
 
-## Regras desta instalação (laptop-2023)
+## Regras desta instalação
 
-- **Achar a tarefa** sem id no pedido: a linha `**rex:** T-…` (ou a legada `**requerial:**`) do
-  `CLAUDE.md` da pasta, ou `~/.local/share/rex/tasks.tsv` (pasta legada → id).
-- **Organização** de toda tarefa: `Cartório`, `Yes` ou `Pessoal`. Tarefa da Yes leva o `Work=`
-  (código da skill `yes-objetos-de-trabalho-work`, ex. `ENG-06-ACE`) na primeira linha da descrição.
-- **Journal** em `~/dev/rex-journals/S-0001/`. Atualize-o a cada avanço significativo (decisão,
-  etapa concluída, descoberta, bloqueio, worktree criado), não só no fim: a sessão pode ser
-  interrompida a qualquer momento. Persistir é commit da pasta da sessão e **push direto na `main`
-  do `rex-journals`**, a única exceção à regra de nunca dar push na main (autorizada pelo Rafael em
-  2026-10-19: é log, não código).
-- **`~/tasks/` é legado, só leitura**: não crie nem mova pastas ali.
+O que muda de uma instalação para outra fica no `CLAUDE.md` global de quem usa o rex, que vale por
+cima desta skill: as organizações aceitas (e o que cada uma exige na descrição da tarefa), onde ficam
+os journals e como persisti-los, onde achar a tarefa quando o pedido não traz o id. Sem essas regras,
+pergunte ao usuário em vez de inventar.
+
+- **Journal** na pasta da sessão, criada pelo `iniciar_sessao` (o MCP com `-journals`). Atualize-o a
+  cada avanço significativo (decisão, etapa concluída, descoberta, bloqueio, worktree criado), não só
+  no fim: a sessão pode ser interrompida a qualquer momento.
 - Nada disso tem relação com as tools internas `TaskCreate`/`TaskList`/`TaskUpdate` do Claude Code.
 
 ## O que não fazer

@@ -146,33 +146,33 @@ e a próxima ocorrência de um recorrente o herda. Alterar o grau gera `lembrete
 
 ### Palavra-chave: `curto`
 
-Opcional, até 10 caracteres: a palavra que identifica o compromisso ("ballet", "dentista"), para os
-consumidores com pouco espaço (a ilha do iPhone mostra "16:50 ballet" num valor de 16 caracteres).
+Opcional, até 10 caracteres: a palavra que identifica o compromisso ("dentista", "reunião"), para os
+consumidores com pouco espaço (um widget que mostra "16:50 dentista" num valor de 16 caracteres).
 Sem ela, o consumidor usa o começo do texto. No `PATCH`, vazio remove.
 
 ## rex voz
 
-O Rafael fala com as sessões de trabalho pelo modo de voz do app do Claude, com o rex como conector
+O usuário fala com as sessões de trabalho pelo modo de voz do app do Claude, com o rex como conector
 personalizado (`/mcp`, ver [`login.md`](login.md)): o app chama as ferramentas `voz_*`, e o rex fala
-com cada agente pelo tmux dele, como o Rafael faria no laptop. Rotas (contrato em
+com cada agente pelo tmux dele, como o usuário faria no laptop. Rotas (contrato em
 `api/openapi.yaml`):
 
 - `GET /voz/sessoes` (`voz_panorama`): as sessões ativas, com estado, o que
-  pediram ao Rafael, quantas novidades ele não ouviu e o último texto do agente.
+  pediram ao usuário, quantas novidades ele não ouviu e o último texto do agente.
 - `POST /voz/sessoes/{id}/mensagens` digita a frase no agente como `[rex voz · pedido N] …`. Com o
   agente trabalhando, o Claude Code a põe na fila dele, em ordem. Recusada (409) numa tela de
   permissão. `{id}` é a sessão ou uma tarefa com sessão ativa.
 - `GET /voz/sessoes/{id}` diz o estado do agente, lido da tela: `trabalhando` ("esc to interrupt"
   na barra), `pedindo_permissao` (opções numeradas; vem a `tela`), `ocioso`, `sem_agente` (tmux não
   achado) ou `encerrada`. Traz também as novidades do transcript do agente
-  (`~/.claude/projects/*/<chat>.jsonl`) depois do ponteiro: falas do Rafael, mensagens de outras
+  (`~/.claude/projects/*/<chat>.jsonl`) depois do ponteiro: falas do usuário, mensagens de outras
   sessões (`de: sessao`, com `origem`) e textos do agente, inclusive a narração do meio do turno,
   que o Claude Code grava como bloco `thinking` com texto (o raciocínio fica gravado vazio).
   `esperar` (até 20 s) segura a resposta enquanto o agente trabalha calado.
-- Ponteiro: cada sessão guarda o uuid da última linha do transcript que o Rafael ouviu
+- Ponteiro: cada sessão guarda o uuid da última linha do transcript que o usuário ouviu
   (`voz_lido_ate`). Só `GET /voz/sessoes/{id}?ouvir=true` o avança: é o que o conector usa, porque o
-  app fala ao Rafael o que recebe. As `voz_*` do MCP local (de um agente) só leem.
-- `POST /voz/sessoes/{id}/teclas` aperta 1–4 ou Enter numa tela de permissão (a escolha que o Rafael
+  app fala ao usuário o que recebe. As `voz_*` do MCP local (de um agente) só leem.
+- `POST /voz/sessoes/{id}/teclas` aperta 1–4 ou Enter numa tela de permissão (a escolha que o usuário
   falou) ou Escape para interromper.
 
 ### Entre sessões

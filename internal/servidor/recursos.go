@@ -53,7 +53,7 @@ func (s *Servidor) conferirMemoria(ctx context.Context, forcar bool) error {
 		return nil
 	}
 	return &erroHTTP{status: http.StatusConflict, recursos: &x, mensagem: "pouca memória para subir mais um agente: " +
-		"confirme com o Rafael e peça de novo com forcar, ou libere memória antes.\n" + x.Resumo}
+		"confirme com o usuário e peça de novo com forcar, ou libere memória antes.\n" + x.Resumo}
 }
 
 // medir junta a medição da máquina às sessões ativas do rex, pelo chat de cada Claude Code.
@@ -228,7 +228,7 @@ func gb(mb int) string {
 	return strings.Replace(fmt.Sprintf("%.1f GB", float64(mb)/1024), ".", ",", 1)
 }
 
-// resumoDosRecursos diz a medição em poucas linhas, do jeito que o Rafael lê (ou ouve, na voz).
+// resumoDosRecursos diz a medição em poucas linhas, do jeito que o usuário lê (ou ouve, na voz).
 func resumoDosRecursos(r api.Recursos, agora time.Time) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "Memória disponível: %s de %s (mínimo para lançar agente: %s).\n",
@@ -270,7 +270,7 @@ func resumoDosRecursos(r api.Recursos, agora time.Time) string {
 		}
 		fmt.Fprintf(&b, "Docker: %s.\n", strings.Join(partes, "; "))
 	}
-	// As que esperam o Rafael há mais tempo são as candidatas a encerrar.
+	// As que esperam o usuário há mais tempo são as candidatas a encerrar.
 	var esperando []api.SessaoNaMaquina
 	for _, x := range r.Sessoes {
 		if x.Aguardando != nil {
@@ -283,7 +283,7 @@ func resumoDosRecursos(r api.Recursos, agora time.Time) string {
 		for _, x := range esperando {
 			partes = append(partes, fmt.Sprintf("%s (%s, há %s, %s)", x.Nome, *x.Sessao, duracao(agora.Sub(x.Aguardando.Desde)), gb(x.MemoriaMb)))
 		}
-		fmt.Fprintf(&b, "Esperando o Rafael, da mais antiga: %s.\n", strings.Join(partes, "; "))
+		fmt.Fprintf(&b, "Esperando o usuário, da mais antiga: %s.\n", strings.Join(partes, "; "))
 	}
 	if len(r.MaioresPorCpu) > 0 {
 		p := r.MaioresPorCpu[0]

@@ -25,7 +25,7 @@ Se as ferramentas `mcp__rex__*` não estiverem disponíveis, diga isso ao usuár
 decidiu parar) · `bloqueada` (dependência externa) · `em_validacao` (pronta, falta o usuário validar)
 · `concluida` (entregue) · `cancelada` (não queremos mais fazer).
 
-`cancelada` é para o que o Rafael desistiu de fazer ("cancela", "não vamos mais fazer", "esquece
+`cancelada` é para o que o usuário desistiu de fazer ("cancela", "não vamos mais fazer", "esquece
 essa"): nunca use `concluida` com uma nota no lugar dela. Para os requisitos, a tarefa cancelada não
 conta: não é trabalho em aberto nem entrega, e um requisito só com canceladas volta a pedir tarefa.
 Ela continua listada nos requisitos e pode ser reaberta (outro status) se ele mudar de ideia. Se o
@@ -55,7 +55,7 @@ Para uma tarefa recorrente, procure antes uma pré-moldada: `listar_templates` e
 ## Pré-moldadas (templates)
 
 Uma pré-moldada (`TP-0001`) guarda título, organização, descrição (as instruções que cada instância
-recebe), periodicidade em dias e requisitos. Quando o Rafael pedir para guardar um trabalho
+recebe), periodicidade em dias e requisitos. Quando o usuário pedir para guardar um trabalho
 recorrente como pré-moldada, ou para ajustá-la:
 
 - **Criar**: `criar_template(titulo, organizacao, descricao, periodicidade_dias?, requisitos?)`. Sem
@@ -74,13 +74,13 @@ diga qual, para quê e com qual modelo e esforço.
   padrão do lançador (`opcoes_do_lancador`). A `instrucao` é só o que a tarefa não diz (ex.: o link do
   PR); o agente lê a tarefa e as sessões anteriores. Recusa tarefa com sessão ativa.
 - **Memória**: o `lancar_agente` mede a máquina antes de subir e recusa com pouca RAM disponível,
-  devolvendo o que ocupa e as sessões que esperam o Rafael há mais tempo. Passe isso a ele e sugira o
+  devolvendo o que ocupa e as sessões que esperam o usuário há mais tempo. Passe isso a ele e sugira o
   que encerrar; só repita com `forcar: true` se ele mandar abrir assim mesmo. Para olhar antes,
   `recursos_da_maquina` (RAM, sessões, itens abertos, docker e os maiores processos por RAM e por
   CPU). Para liberar, `descer_item` fecha um item aberto (Steam, ambiente docker, agente navegador…),
-  só com o sim do Rafael para aquele item; uma recusa (lock com dono) é a resposta: diga-a a ele.
+  só com o sim do usuário para aquele item; uma recusa (lock com dono) é a resposta: diga-a a ele.
 - **Nome**: se você sabe do que o agente vai tratar, passe `nome`: o assunto em poucas palavras
-  (`dados-privado-joao`, `lembretes-time-sensitive`). É o que o Rafael vê no tmux e na lista do Claude
+  (`dados-privado-joao`, `lembretes-time-sensitive`). É o que o usuário vê no tmux e na lista do Claude
   Code web. Sem verbo genérico ("retomar", "revisar") e sem apelido de repositório. Sem `nome`, ele
   sai do título, e o agente o corrige depois se ficar ruim.
 - **Conferir**: em cerca de um minuto, `obter_tarefa` deve mostrar `sessao_ativa`. Sem ela, o agente
@@ -92,7 +92,7 @@ diga qual, para quê e com qual modelo e esforço.
 - **Retomar**: `lancar_agente` de novo; o agente novo começa pelo resumo da última sessão.
 - **Conversar com um agente vivo** (perguntar, combinar algo): `enviar_a_sessao(sessao, texto)`. A
   mensagem chega identificada por você e com a instrução de responder pela mesma ferramenta; a
-  resposta entra no seu chat como mensagem nova. Não use `voz_enviar` (é a voz do Rafael), não fique
+  resposta entra no seu chat como mensagem nova. Não use `voz_enviar` (é a voz do usuário), não fique
   consultando `voz_situacao` e nunca leia a tela do tmux dele para achar a resposta.
 
 ## Pausar, bloquear, validar, concluir ou retomar
@@ -103,7 +103,7 @@ diga qual, para quê e com qual modelo e esforço.
 - **Tarefa com sessão ativa mas sem agente vivo** (`lancar_agente` recusa com "já tem a sessão
   ativa", por exemplo depois de um reboot): `encerrar_sessao_orfa(sessao)` e `lancar_agente` de novo.
   O rex confere se o agente morreu e recusa se não puder provar; a recusa é a resposta: diga-a ao
-  Rafael, sem contornar pela API. Sobra o frontend (encerramento manual), para ele decidir. Se souber
+  usuário, sem contornar pela API. Sobra o frontend (encerramento manual), para ele decidir. Se souber
   onde o trabalho parou, passe `observacao`: o resumo da tarefa ganha um aviso com o journal da sessão
   e mantém o que tinha.
 
@@ -134,7 +134,7 @@ de "cópia fora do ambiente principal", que deriva de "cumprir a lei de dados".
   só passa a pedir atenção.
   Para remanejar, `derivar_requisito` do novo pai e depois `remover_derivacao` do antigo: ela recusa
   deixar o requisito sem pai, e os pontos da ligação removida somem.
-  **Reagrupar nunca muda o peso de ninguém em relação ao zero** (decisão do Rafael, 2026-11-07): o
+  **Reagrupar nunca muda o peso de ninguém em relação ao zero** (decisão de 2026-11-07): o
   intermediário entra sob o pai com a soma dos pontos que os filhos tinham ali (não triado conta 1),
   e cada filho fica sob o intermediário com os mesmos pontos de antes (`definir_pontos`). Confira o
   `peso` de um filho antes e depois.
@@ -147,7 +147,7 @@ de "cópia fora do ambiente principal", que deriva de "cumprir a lei de dados".
   só se comparam entre irmãos: a fatia é pontos / soma dos irmãos; o `peso` no total soma, sobre os
   pais, peso do pai × fatia (o zero vale 100%). Sem pontos, a ligação não foi triada (conta como 1).
   A triagem é breadth-first, a partir do zero; `arvore_de_requisitos` mostra pontos, fatia e peso.
-  Os pontos são escolhidos pelo Rafael: ao propor, diga o porquê; só altere com o aval dele. A
+  Os pontos são escolhidos pelo usuário: ao propor, diga o porquê; só altere com o aval dele. A
   antiga `prioridade` (alta, media, baixa) é só histórico.
 - `registrar_execucao` registra uma verificação de conformidade, com a evidência e a validade em
   dias. Só registre o que foi verificado de fato, agora; nunca porque as tarefas acabaram.

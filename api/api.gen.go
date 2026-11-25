@@ -67,9 +67,9 @@ const (
 
 // Defines values for NovidadeDeVozDe.
 const (
-	DaSessao NovidadeDeVozDe = "sessao"
-	DoAgente NovidadeDeVozDe = "agente"
-	DoRafael NovidadeDeVozDe = "rafael"
+	DaSessao  NovidadeDeVozDe = "sessao"
+	DoAgente  NovidadeDeVozDe = "agente"
+	DoUsuario NovidadeDeVozDe = "usuario"
 )
 
 // Defines values for PrecisaoLembrete.
@@ -341,7 +341,7 @@ type Erro struct {
 
 // Espera defines model for Espera.
 type Espera struct {
-	// Mensagem O que o agente precisa do Rafael, em uma linha
+	// Mensagem O que o agente precisa do usuário, em uma linha
 	Mensagem string `json:"mensagem"`
 }
 
@@ -463,7 +463,7 @@ type Lembrete struct {
 	Ocorrencia  *int   `json:"ocorrencia,omitempty"`
 	Organizacao string `json:"organizacao"`
 
-	// Precisao Quão exata é a hora marcada. hora: o Rafael disse data e hora explícitas; o lembrete é
+	// Precisao Quão exata é a hora marcada. hora: o usuário disse data e hora explícitas; o lembrete é
 	// sensível ao horário e as integrações podem tocar alarme. turno, dia, semana, fim_de_semana ou
 	// mes: vale para uma janela, e o rex põe `quando` no início dela e grava o `fim`, então os da
 	// mesma janela disparam juntos e as integrações os avisam em lote, sem alarme. As janelas: o
@@ -575,7 +575,7 @@ type NovaTarefa struct {
 
 // NovidadeDeVoz defines model for NovidadeDeVoz.
 type NovidadeDeVoz struct {
-	// De rafael (fala dele, inclusive pelo rex voz), sessao (mensagem de outra sessão, ver origem) ou agente
+	// De usuario (fala dele, inclusive pelo rex voz), sessao (mensagem de outra sessão, ver origem) ou agente
 	De NovidadeDeVozDe `json:"de"`
 	Em time.Time       `json:"em"`
 
@@ -587,7 +587,7 @@ type NovidadeDeVoz struct {
 	Texto  string `json:"texto"`
 }
 
-// NovidadeDeVozDe rafael (fala dele, inclusive pelo rex voz), sessao (mensagem de outra sessão, ver origem) ou agente
+// NovidadeDeVozDe usuario (fala dele, inclusive pelo rex voz), sessao (mensagem de outra sessão, ver origem) ou agente
 type NovidadeDeVozDe string
 
 // NovoComponente defines model for NovoComponente.
@@ -602,7 +602,7 @@ type NovoLembrete struct {
 	// AvisoMax Grau de aviso na precisão hora: 1 só a ilha, 2 sem som (padrão), 3 com som
 	AvisoMax *int `json:"aviso_max,omitempty"`
 
-	// Curto Palavra-chave do lembrete, até 10 caracteres ("ballet", "dentista"); sem ela, as integrações usam o começo do texto
+	// Curto Palavra-chave do lembrete, até 10 caracteres ("dentista", "reunião"); sem ela, as integrações usam o começo do texto
 	Curto *string `json:"curto,omitempty"`
 
 	// Fim Fim da janela, só para trocar o padrão da precisão (semana até domingo, por exemplo); depois do início da janela. Ausente: o padrão
@@ -687,18 +687,18 @@ type Origem struct {
 
 // PanoramaDeVoz defines model for PanoramaDeVoz.
 type PanoramaDeVoz struct {
-	// Aguardando O que o agente pediu ao Rafael (aguardar_resposta), se pediu
+	// Aguardando O que o agente pediu ao usuário (aguardar_resposta), se pediu
 	Aguardando *string `json:"aguardando,omitempty"`
 
 	// Estado encerrada: a sessão terminou; sem_agente: a sessão está ativa mas o tmux do agente não foi
 	// achado; trabalhando, ocioso ou pedindo_permissao: lido da tela.
 	Estado EstadoDaVoz `json:"estado"`
 
-	// NaoOuvidas Textos do agente depois do ponteiro do que o Rafael ouviu e da última fala dele na sessão
+	// NaoOuvidas Textos do agente depois do ponteiro do que o usuário ouviu e da última fala dele na sessão
 	NaoOuvidas int     `json:"nao_ouvidas"`
 	Nome       *string `json:"nome,omitempty"`
 
-	// PalavrasChave Palavras do nome da sessão, para achar a de que o Rafael fala
+	// PalavrasChave Palavras do nome da sessão, para achar a de que o usuário fala
 	PalavrasChave *[]string `json:"palavras_chave,omitempty"`
 	Sessao        string    `json:"sessao"`
 	Tarefas       []string  `json:"tarefas"`
@@ -731,7 +731,7 @@ type PedidoDeLancamento struct {
 	// Esforco Um dos esforços do lançador; padrão: o configurado
 	Esforco *string `json:"esforco,omitempty"`
 
-	// Forcar Sobe mesmo com menos RAM disponível que o mínimo; só depois de o Rafael confirmar
+	// Forcar Sobe mesmo com menos RAM disponível que o mínimo; só depois de o usuário confirmar
 	Forcar *bool `json:"forcar,omitempty"`
 
 	// Instrucao Instrução adicional de reabertura, somada ao prompt padrão; o resto do contexto o agente lê da tarefa e das sessões anteriores
@@ -763,7 +763,7 @@ type Pendencias struct {
 	// Lembretes Disparados primeiro, depois os que vencem até horizonte_ate, por hora marcada
 	Lembretes []Lembrete `json:"lembretes"`
 
-	// SessoesAguardando Sessões ativas cujo agente espera resposta do Rafael
+	// SessoesAguardando Sessões ativas cujo agente espera resposta do usuário
 	SessoesAguardando  []Sessao `json:"sessoes_aguardando"`
 	TarefasEmValidacao []Tarefa `json:"tarefas_em_validacao"`
 
@@ -777,7 +777,7 @@ type Pontos struct {
 	Pontos *int `json:"pontos,omitempty"`
 }
 
-// PrecisaoLembrete Quão exata é a hora marcada. hora: o Rafael disse data e hora explícitas; o lembrete é
+// PrecisaoLembrete Quão exata é a hora marcada. hora: o usuário disse data e hora explícitas; o lembrete é
 // sensível ao horário e as integrações podem tocar alarme. turno, dia, semana, fim_de_semana ou
 // mes: vale para uma janela, e o rex põe `quando` no início dela e grava o `fim`, então os da
 // mesma janela disparam juntos e as integrações os avisam em lote, sem alarme. As janelas: o
@@ -845,7 +845,7 @@ type Recursos struct {
 	MemoriaTotalMb  int `json:"memoria_total_mb"`
 	Nucleos         int `json:"nucleos"`
 
-	// Resumo Os números acima em poucas linhas, para dizer ao Rafael
+	// Resumo Os números acima em poucas linhas, para dizer ao usuário
 	Resumo string `json:"resumo"`
 
 	// Sessoes Claude Code abertos, cada um com os servidores MCP filhos, da maior para a menor
@@ -946,7 +946,7 @@ type ResumoDeRequisito struct {
 
 // ResumoDeTarefa defines model for ResumoDeTarefa.
 type ResumoDeTarefa struct {
-	// Aguardando O que a sessão ativa espera do Rafael, se está aguardando
+	// Aguardando O que a sessão ativa espera do usuário, se está aguardando
 	Aguardando  *string      `json:"aguardando,omitempty"`
 	Id          string       `json:"id"`
 	Organizacao string       `json:"organizacao"`
