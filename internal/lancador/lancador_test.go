@@ -1,6 +1,8 @@
 package lancador
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -255,6 +257,7 @@ func TestLancadorAbreASessaoAntesDoAgente(t *testing.T) {
 	l, err := Novo(Config{
 		Diretorio: "/journals", Comando: []string{"agente", "--session-id", "{chat}"},
 		Modelos: []Modelo{{Nome: "Claude Opus 5.5", Argumentos: []string{"--model", "opus"}}}, EsforcoPadrao: "medium",
+		DiretorioDeTokens: t.TempDir(),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -273,9 +276,21 @@ func TestLancadorAbreASessaoAntesDoAgente(t *testing.T) {
 		t.Fatalf("sessão aberta com dados inesperados: %v", partes)
 	}
 	ultima := f.chamadas[len(f.chamadas)-1]
-	if !strings.Contains(ultima, "-e "+VariavelSessao+"=S-0042") || !strings.Contains(ultima, "-e "+VariavelToken+"=segredo") ||
-		!strings.Contains(ultima, "--session-id "+partes[2]) {
+	if !strings.Contains(ultima, "-e "+VariavelSessao+"=S-0042") || !strings.Contains(ultima, "--session-id "+partes[2]) {
 		t.Fatalf("o agente não recebeu a sessão: %s", ultima)
+	}
+	if strings.Contains(ultima, "segredo") {
+		t.Fatalf("o token foi na linha de comando: %s", ultima)
+	}
+	arquivo := filepath.Join(l.cfg.DiretorioDeTokens, "S-0042")
+	if !strings.Contains(ultima, `export `+VariavelToken+` && exec "$@" `+arquivo) {
+		t.Fatalf("o agente não lê o token do arquivo: %s", ultima)
+	}
+	if conteudo, err := os.ReadFile(arquivo); err != nil || string(conteudo) != "segredo" {
+		t.Fatalf("token no arquivo: %q, %v", conteudo, err)
+	}
+	if info, _ := os.Stat(arquivo); info.Mode().Perm() != 0o600 {
+		t.Fatalf("permissão do arquivo do token: %v", info.Mode().Perm())
 	}
 }
 
@@ -409,5 +424,12 @@ func TestConferirOrfa(t *testing.T) {
 	tmux.sessoes["deploy"] = "T-0001"
 	if err := l.ConferirOrfa(x); err == nil || !strings.Contains(err.Error(), "tmux deploy") {
 		t.Fatalf("tmux da tarefa: %v", err)
+	}
+}
+
+func TestSemVariaveis(t *testing.T) {
+	saida := semVariaveis([]string{"A=1", "REX_CHAVE_LOGIN=x", "B=2=3"}, []string{"REX_CHAVE_LOGIN"})
+	if strings.Join(saida, " ") != "A=1 B=2=3" {
+		t.Fatalf("ambiente: %v", saida)
 	}
 }
