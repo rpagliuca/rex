@@ -433,3 +433,16 @@ func TestSemVariaveis(t *testing.T) {
 		t.Fatalf("ambiente: %v", saida)
 	}
 }
+
+// TestMain põe os arquivos de token dos testes numa pasta temporária, longe da pasta real do
+// lançador ($XDG_RUNTIME_DIR/rex-tokens).
+func TestMain(m *testing.M) {
+	dir, err := os.MkdirTemp("", "rex-lancador-teste")
+	if err != nil {
+		panic(err)
+	}
+	os.Setenv("XDG_RUNTIME_DIR", dir)
+	codigo := m.Run()
+	os.RemoveAll(dir)
+	os.Exit(codigo)
+}
