@@ -63,6 +63,9 @@ type Config struct {
 	// RemoverDoAmbiente lista variáveis que o agente não pode herdar do servidor tmux (por exemplo,
 	// as de um agente que abriu o tmux), para que o agente novo defina as suas.
 	RemoverDoAmbiente []string `json:"remover_do_ambiente"`
+	// DiretorioDeTokens guarda, por instantes, o token de cada agente que sobe (arquivo 0600 numa
+	// pasta 0700, apagado pelo próprio agente ao subir). Padrão: $XDG_RUNTIME_DIR/rex-tokens.
+	DiretorioDeTokens string `json:"diretorio_de_tokens"`
 	// Ambiente define variáveis para o agente; os valores aceitam {modelo} e {esforco}. Uma
 	// variável cujo valor fica vazio (ex.: sem esforço escolhido) não é definida.
 	Ambiente map[string]string `json:"ambiente"`
@@ -149,7 +152,11 @@ func Novo(cfg Config) (*Lancador, error) {
 	maquina, _ := os.Hostname()
 	l := &Lancador{cfg: cfg, maquina: maquina, processosDoChat: processosDoChat, paiDe: paiDe}
 	l.executar = func(args ...string) (string, error) {
-		saida, err := exec.Command(l.cfg.Tmux, args...).CombinedOutput()
+		cmd := exec.Command(l.cfg.Tmux, args...)
+		// O servidor tmux herda o ambiente do primeiro cliente: sem as variáveis de RemoverDoAmbiente
+		// (segredos do próprio rex, como REX_CHAVE_LOGIN), um agente não as lê com show-environment.
+		cmd.Env = semVariaveis(os.Environ(), l.cfg.RemoverDoAmbiente)
+		saida, err := cmd.CombinedOutput()
 		return strings.TrimSpace(string(saida)), err
 	}
 	return l, nil
@@ -285,7 +292,16 @@ func (l *Lancador) iniciar(t api.Tarefa, pedido api.PedidoDeLancamento) error {
 	}
 	args := []string{"new-session", "-d", "-s", nome, "-c", l.cfg.Diretorio, "-e", VariavelTarefa + "=" + t.Id}
 	if sessao != nil {
-		args = append(args, "-e", VariavelSessao+"="+sessao.Sessao.Id, "-e", VariavelToken+"="+sessao.Token)
+		// O token não vai na linha de comando: /proc/<pid>/cmdline é legível por qualquer usuário, e o
+		// servidor tmux guarda para sempre a linha do new-session que o criou. Vai num arquivo 0600
+		// que o shell do painel lê, apaga e exporta antes de executar o agente.
+		arquivo, err := l.gravarToken(sessao.Sessao.Id, sessao.Token)
+		if err != nil {
+			l.registrar(l.sessoes.EncerrarSessaoLancada(sessao.Sessao.Id, "O lançador não conseguiu gravar o token: "+err.Error()))
+			return err
+		}
+		args = append(args, "-e", VariavelSessao+"="+sessao.Sessao.Id,
+			"sh", "-c", ``+VariavelToken+`=$(cat "$0") && rm -f "$0" && export `+VariavelToken+` && exec "$@"`, arquivo)
 	}
 	definir := l.ambiente(pedido)
 	if len(l.cfg.RemoverDoAmbiente) > 0 || len(definir) > 0 {
@@ -582,4 +598,43 @@ func nomeCurto(titulo string) string {
 		nome = "tarefa"
 	}
 	return nome
+}
+
+// gravarToken grava o token da sessão num arquivo que só o dono lê e devolve o caminho.
+func (l *Lancador) gravarToken(sessao, token string) (string, error) {
+	dir := l.cfg.DiretorioDeTokens
+	if dir == "" {
+		base := os.Getenv("XDG_RUNTIME_DIR")
+		if base == "" {
+			base = os.TempDir()
+		}
+		dir = filepath.Join(base, "rex-tokens")
+	}
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return "", fmt.Errorf("pasta dos tokens: %w", err)
+	}
+	if err := os.Chmod(dir, 0o700); err != nil {
+		return "", fmt.Errorf("pasta dos tokens: %w", err)
+	}
+	arquivo := filepath.Join(dir, sessao)
+	if err := os.WriteFile(arquivo, []byte(token), 0o600); err != nil {
+		return "", fmt.Errorf("token da sessão %s: %w", sessao, err)
+	}
+	return arquivo, nil
+}
+
+// semVariaveis devolve o ambiente sem as variáveis dadas.
+func semVariaveis(ambiente, remover []string) []string {
+	fora := map[string]bool{}
+	for _, v := range remover {
+		fora[v] = true
+	}
+	var saida []string
+	for _, kv := range ambiente {
+		nome, _, _ := strings.Cut(kv, "=")
+		if !fora[nome] {
+			saida = append(saida, kv)
+		}
+	}
+	return saida
 }
