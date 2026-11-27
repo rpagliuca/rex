@@ -279,6 +279,7 @@ func (l *Lancador) iniciar(t api.Tarefa, pedido api.PedidoDeLancamento) error {
 		return err
 	}
 	var sessao *api.SessaoCriada
+	arquivoDoToken := ""
 	if l.sessoes != nil && pedido.Modelo != nil {
 		esforco := ""
 		if pedido.Esforco != nil {
@@ -296,6 +297,7 @@ func (l *Lancador) iniciar(t api.Tarefa, pedido api.PedidoDeLancamento) error {
 		// servidor tmux guarda para sempre a linha do new-session que o criou. Vai num arquivo 0600
 		// que o shell do painel lê, apaga e exporta antes de executar o agente.
 		arquivo, err := l.gravarToken(sessao.Sessao.Id, sessao.Token)
+		arquivoDoToken = arquivo
 		if err != nil {
 			l.registrar(l.sessoes.EncerrarSessaoLancada(sessao.Sessao.Id, "O lançador não conseguiu gravar o token: "+err.Error()))
 			return err
@@ -332,6 +334,9 @@ func (l *Lancador) iniciar(t api.Tarefa, pedido api.PedidoDeLancamento) error {
 	}
 	args = append(args, prompt)
 	if saida, err := l.executar(args...); err != nil {
+		if arquivoDoToken != "" {
+			os.Remove(arquivoDoToken) // o agente não subiu para apagá-lo
+		}
 		if sessao != nil {
 			l.registrar(l.sessoes.EncerrarSessaoLancada(sessao.Sessao.Id, "O lançador não conseguiu subir o agente: "+saida))
 		}
