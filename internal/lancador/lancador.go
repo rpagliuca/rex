@@ -66,6 +66,10 @@ type Config struct {
 	// DiretorioDeTokens guarda, por instantes, o token de cada agente que sobe (arquivo 0600 numa
 	// pasta 0700, apagado pelo próprio agente ao subir). Padrão: $XDG_RUNTIME_DIR/rex-tokens.
 	DiretorioDeTokens string `json:"diretorio_de_tokens"`
+	// ComandoNaVM sobe o agente confinado numa VM, quando o pedido traz na_vm: vai antes do comando
+	// do agente, que ele recebe inteiro como argumentos, já com REX_TOKEN e REX_SESSAO no ambiente.
+	// Aceita {sessao}, {nome} e {chat}. Vazio: esta instalação não sobe agentes em VM.
+	ComandoNaVM []string `json:"comando_na_vm"`
 	// Ambiente define variáveis para o agente; os valores aceitam {modelo} e {esforco}. Uma
 	// variável cujo valor fica vazio (ex.: sem esforço escolhido) não é definida.
 	Ambiente map[string]string `json:"ambiente"`
@@ -187,6 +191,10 @@ func (l *Lancador) Opcoes() api.OpcoesDeLancamento {
 	if l.cfg.EsforcoPadrao != "" {
 		o.EsforcoPadrao = &l.cfg.EsforcoPadrao
 	}
+	if len(l.cfg.ComandoNaVM) > 0 {
+		naVM := true
+		o.NaVm = &naVM
+	}
 	return o
 }
 
@@ -216,6 +224,11 @@ func (l *Lancador) Validar(p *api.PedidoDeLancamento) error {
 			return fmt.Errorf("o nome precisa ter ao menos uma letra ou número: %q", *p.Nome)
 		}
 		p.Nome = &nome
+	}
+	if p.NaVm != nil && !*p.NaVm {
+		p.NaVm = nil
+	} else if p.NaVm != nil && len(l.cfg.ComandoNaVM) == 0 {
+		return fmt.Errorf("esta instalação não sobe agentes numa VM (sem comando_na_vm no lançador)")
 	}
 	return nil
 }
@@ -312,6 +325,15 @@ func (l *Lancador) iniciar(t api.Tarefa, pedido api.PedidoDeLancamento) error {
 			args = append(args, "-u", v)
 		}
 		args = append(args, definir...)
+	}
+	if pedido.NaVm != nil && *pedido.NaVm {
+		id := t.Id
+		if sessao != nil {
+			id = sessao.Sessao.Id
+		}
+		for _, parte := range l.cfg.ComandoNaVM {
+			args = append(args, strings.NewReplacer("{sessao}", id, "{nome}", nome, "{chat}", chat).Replace(parte))
+		}
 	}
 	for _, parte := range l.cfg.Comando {
 		args = append(args, strings.NewReplacer("{nome}", nome, "{chat}", chat).Replace(parte))

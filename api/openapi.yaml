@@ -1690,6 +1690,7 @@ components:
         esforco: { type: string, description: 'Um dos esforços do lançador; padrão: o configurado' }
         nome: { type: string, description: 'Nome curto da sessão do agente (tmux e remote-control), dizendo o assunto do trabalho; padrão: derivado do título' }
         forcar: { type: boolean, description: 'Sobe mesmo com menos RAM disponível que o mínimo; só depois de o usuário confirmar' }
+        na_vm: { type: boolean, description: 'Sobe o agente confinado numa VM própria (comando_na_vm do lançador); padrão: no host' }
     Recursos:
       type: object
       required: [medido_em, memoria_total_mb, memoria_disponivel_mb, memoria_minima_mb, abaixo_do_minimo, nucleos, carga_1min, sessoes, itens, docker, maiores_por_memoria, maiores_por_cpu, resumo]
@@ -1784,6 +1785,7 @@ components:
           type: array
           items: { type: string }
         modelo_padrao: { type: string }
+        na_vm: { type: boolean, description: 'Esta instalação sabe subir agentes numa VM (na_vm no pedido)' }
         esforco_padrao: { type: string }
     Sessao:
       type: object

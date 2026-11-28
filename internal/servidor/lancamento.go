@@ -82,6 +82,9 @@ func (s *Servidor) pedirAgente(n int64, pedido api.PedidoDeLancamento, quemPede 
 		if pedido.Instrucao != nil && !vazio(*pedido.Instrucao) {
 			dados["instrucao"] = *pedido.Instrucao
 		}
+		if pedido.NaVm != nil && *pedido.NaVm {
+			dados["na_vm"] = true
+		}
 		if err := s.registrarEvento(tx, quem, atual.Id, "agente_pedido", dados); err != nil {
 			return err
 		}

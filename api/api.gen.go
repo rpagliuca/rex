@@ -664,6 +664,9 @@ type OpcoesDeLancamento struct {
 	Esforcos      []string `json:"esforcos"`
 	ModeloPadrao  string   `json:"modelo_padrao"`
 	Modelos       []string `json:"modelos"`
+
+	// NaVm Esta instalação sabe subir agentes numa VM (na_vm no pedido)
+	NaVm *bool `json:"na_vm,omitempty"`
 }
 
 // Organizacao defines model for Organizacao.
@@ -739,6 +742,9 @@ type PedidoDeLancamento struct {
 
 	// Modelo Um dos modelos do lançador; padrão: o primeiro
 	Modelo *string `json:"modelo,omitempty"`
+
+	// NaVm Sobe o agente confinado numa VM própria (comando_na_vm do lançador); padrão: no host
+	NaVm *bool `json:"na_vm,omitempty"`
 
 	// Nome Nome curto da sessão do agente (tmux e remote-control), dizendo o assunto do trabalho; padrão: derivado do título
 	Nome *string `json:"nome,omitempty"`

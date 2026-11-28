@@ -695,6 +695,7 @@ type Lancamento struct {
 	Esforco   string `json:"esforco,omitempty" jsonschema:"um dos esforços de opcoes_do_lancador; padrão: o configurado"`
 	Nome      string `json:"nome,omitempty" jsonschema:"nome curto do agente (tmux e remote-control) que diz o assunto do trabalho, como dados-privado-joao; informe sempre que souber do que se trata; sem apelido de repositório; padrão: derivado do título"`
 	Forcar    bool   `json:"forcar,omitempty" jsonschema:"sobe mesmo com pouca memória; só depois de o usuário confirmar a recusa anterior"`
+	NaVM      bool   `json:"na_vm,omitempty" jsonschema:"sobe o agente confinado numa VM própria, só se opcoes_do_lancador trouxer na_vm e o usuário pedir; padrão: no host"`
 }
 
 type JournalDaSessao struct {
@@ -872,6 +873,9 @@ func (f *Ferramentas) lancarAgente(ctx context.Context, _ *mcp.CallToolRequest, 
 		Esforco: opcional(in.Esforco), Nome: opcional(in.Nome)}
 	if in.Forcar {
 		pedido.Forcar = &in.Forcar
+	}
+	if in.NaVM {
+		pedido.NaVm = &in.NaVM
 	}
 	resp, err := f.cliente.LancarAgente(ctx, in.Tarefa, pedido, f.autorizar)
 	return nil, out, decodificar(resp, err, &out)
