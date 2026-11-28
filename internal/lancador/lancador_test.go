@@ -392,6 +392,55 @@ func TestArgumentosSoDoAgenteDaTarefa(t *testing.T) {
 	}
 }
 
+func TestAgenteNaVM(t *testing.T) {
+	l, err := Novo(Config{Diretorio: "/journals", Comando: []string{"agente"}, DiretorioDeTokens: t.TempDir(),
+		Modelos:     []Modelo{{Nome: "Modelo A"}},
+		ComandoNaVM: []string{"agente-na-vm", "agente-{sessao}"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := &tmuxFalso{sessoes: map[string]string{}}
+	l.executar = f.executar
+	l.sessoes = &sessoesFalsas{}
+	if o := l.Opcoes(); o.NaVm == nil || !*o.NaVm {
+		t.Fatalf("opções sem na_vm: %+v", o)
+	}
+
+	sim := true
+	pedido := api.PedidoDeLancamento{NaVm: &sim}
+	if err := l.Validar(&pedido); err != nil {
+		t.Fatal(err)
+	}
+	l.MudouStatus(servidor.MudancaDeStatus{Tarefa: api.Tarefa{Id: "T-0007", Titulo: "Confinado", Status: api.EmAndamento}, Anterior: api.AFazer, Autor: "local", Lancamento: &pedido})
+	if ultima := f.chamadas[len(f.chamadas)-1]; !strings.Contains(ultima, `exec "$@" `) || !strings.Contains(ultima, " agente-na-vm agente-S-0042 agente ") {
+		t.Fatalf("comando sem o prefixo da VM: %s", ultima)
+	}
+
+	nao := false
+	pedido = api.PedidoDeLancamento{NaVm: &nao}
+	if err := l.Validar(&pedido); err != nil || pedido.NaVm != nil {
+		t.Fatalf("na_vm falso: %+v %v", pedido, err)
+	}
+	l.MudouStatus(servidor.MudancaDeStatus{Tarefa: api.Tarefa{Id: "T-0008", Titulo: "No host", Status: api.EmAndamento}, Anterior: api.AFazer, Autor: "local", Lancamento: &pedido})
+	if ultima := f.chamadas[len(f.chamadas)-1]; strings.Contains(ultima, "agente-na-vm") {
+		t.Fatalf("agente no host recebeu o prefixo da VM: %s", ultima)
+	}
+}
+
+func TestSemVMConfigurada(t *testing.T) {
+	l, err := Novo(Config{Diretorio: "/journals", Comando: []string{"agente"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if o := l.Opcoes(); o.NaVm != nil {
+		t.Fatalf("opções com na_vm sem comando_na_vm: %+v", o)
+	}
+	sim := true
+	if err := l.Validar(&api.PedidoDeLancamento{NaVm: &sim}); err == nil {
+		t.Fatal("aceitou na_vm sem comando_na_vm")
+	}
+}
+
 func TestConferirOrfa(t *testing.T) {
 	l, tmux := novoLancador(t)
 	l.maquina = "laptop"
